@@ -1,0 +1,119 @@
+"""
+Base Agent Architecture for Testing Agent Platform.
+Provides lifecycle management, dynamic model resolution, structured validation,
+execution tracking, and error handling for all 6 specialized agents.
+"""
+
+import time
+from abc import ABC, abstractmethod
+from typing import Dict, Any, Optional, Type
+from pydantic import BaseModel
+from src.llm.router.agent_model_router import agent_model_router
+from src.database.session import SessionLocal
+from src.models.entities import AgentExecution
+from src.core.logging import get_logger
+from src.core.exceptions import AgentExecutionError
+
+logger = get_logger("base_agent")
+
+
+class BaseAgent(ABC):
+    def __init__(self, agent_id: str, agent_name: str, system_instructions: str):
+        self.agent_id = agent_id
+        self.agent_name = agent_name
+        self.system_instructions = system_instructions
+
+    @abstractmethod
+    def run(self, input_data: Any, project_id: Optional[str] = None) -> Any:
+        """Executes the specialized agent task with validated input and output."""
+        pass
+
+    def execute_with_llm(
+        self,
+        prompt: str,
+        output_schema: Optional[Type[BaseModel]] = None,
+        project_id: Optional[str] = None,
+        max_retries: int = 2,
+    ) -> Dict[str, Any]:
+        """
+        Executes a prompt against the agent's dynamically configured AI model,
+        retrying on failure and persisting token and latency metrics.
+        """
+        provider, model_id = agent_model_router.get_provider_and_model(self.agent_id)
+        logger.info(f"Agent '{self.agent_name}' ({self.agent_id}) running on {provider.__class__.__name__} [{model_id}]")
+
+        last_error = None
+        for attempt in range(max_retries + 1):
+            start_time = time.time()
+            try:
+                response = provider.generate_structured(
+                    prompt=prompt,
+                    system_prompt=self.system_instructions,
+                    output_schema=output_schema,
+                    model=model_id,
+                )
+                latency = time.time() - start_time
+
+                # Persist execution metric to database
+                self._record_execution(
+                    project_id=project_id,
+                    provider=response.provider,
+                    model=response.model,
+                    in_tokens=response.input_tokens,
+                    out_tokens=response.output_tokens,
+                    latency=latency,
+                    status="Success",
+                )
+
+                if response.structured_data:
+                    return response.structured_data
+                elif output_schema:
+                    # Parse text if structured_data is empty
+                    return output_schema.model_validate_json(response.text).model_dump()
+                return {"text": response.text}
+
+            except Exception as e:
+                latency = time.time() - start_time
+                last_error = str(e)
+                logger.warning(f"Agent '{self.agent_name}' attempt {attempt + 1} failed: {e}")
+                self._record_execution(
+                    project_id=project_id,
+                    provider=provider.__class__.__name__,
+                    model=model_id,
+                    in_tokens=0,
+                    out_tokens=0,
+                    latency=latency,
+                    status="Failed",
+                    error_message=last_error,
+                )
+
+        raise AgentExecutionError(f"Agent '{self.agent_name}' failed after {max_retries + 1} attempts: {last_error}")
+
+    def _record_execution(
+        self,
+        project_id: Optional[str],
+        provider: str,
+        model: str,
+        in_tokens: int,
+        out_tokens: int,
+        latency: float,
+        status: str,
+        error_message: Optional[str] = None,
+    ):
+        try:
+            with SessionLocal() as db:
+                record = AgentExecution(
+                    project_id=project_id,
+                    agent_name=self.agent_name,
+                    provider=provider,
+                    model=model,
+                    input_tokens=in_tokens,
+                    output_tokens=out_tokens,
+                    latency_seconds=round(latency, 2),
+                    status=status,
+                    error_message=error_message,
+                )
+                db.add(record)
+                db.commit()
+        except Exception as e:
+            logger.warning(f"Could not record agent execution metrics: {e}")
