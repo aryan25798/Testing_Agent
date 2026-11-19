@@ -175,28 +175,99 @@ class TestExecutionAgent(BaseAgent):
 
     def _execute_script_isolated(self, code_content: str, base_url: str) -> Dict[str, Any]:
         """Runs the script inside an isolated temporary file using python -c or temporary script."""
+        project_root = str(Path(__file__).resolve().parent.parent.parent.parent)
+
         with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False, encoding="utf-8") as tmp:
             tmp_path = tmp.name
             # Wrap execution with safety harness
-            harness_code = f"""
-# Isolated Test Runner Harness
+            harness_code = f"""# Isolated Test Runner Harness
 import sys
+import os
+from pathlib import Path
+
+# Ensure project root is on sys.path
+project_root = r"{project_root}"
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+# Ensure tests.pages.base_page is available
+try:
+    from tests.pages.base_page import BasePage
+except ImportError:
+    class BasePage:
+        def __init__(self, page_or_driver):
+            self.page = page_or_driver
+            self.driver = page_or_driver
+        def navigate(self, path="/"):
+            target = "{base_url}".rstrip("/") + (path if path.startswith("/") else "/" + path)
+            if hasattr(self.page, "goto"):
+                self.page.goto(target, wait_until="domcontentloaded", timeout=15000)
+            elif hasattr(self.driver, "get"):
+                self.driver.get(target)
+        def get_title(self):
+            return self.page.title() if hasattr(self.page, "title") else getattr(self.driver, "title", "")
+        def click_button(self, selector):
+            if hasattr(self.page, "locator"):
+                self.page.locator(selector).click(timeout=5000)
+        def enter_text(self, selector, text):
+            if hasattr(self.page, "locator"):
+                self.page.locator(selector).fill(text, timeout=5000)
+        def is_visible(self, selector):
+            if hasattr(self.page, "locator"):
+                return self.page.locator(selector).is_visible()
+            return True
+
+    import types
+    tests_mod = types.ModuleType("tests")
+    pages_mod = types.ModuleType("tests.pages")
+    pages_mod.BasePage = BasePage
+    tests_mod.pages = pages_mod
+    sys.modules["tests"] = tests_mod
+    sys.modules["tests.pages"] = pages_mod
+    sys.modules["tests.pages.base_page"] = pages_mod
+
+# User Automation Code Under Test
 {code_content}
 
-# If script defines a test function, invoke it
+# Test Invocation
 for name, obj in list(locals().items()):
     if name.startswith("test_") and callable(obj):
         try:
-            # Check parameter requirements
             import inspect
             sig = inspect.signature(obj)
             if len(sig.parameters) == 0:
                 obj()
+            elif "page" in sig.parameters:
+                from playwright.sync_api import sync_playwright
+                with sync_playwright() as p:
+                    browser = p.chromium.launch(headless=True)
+                    ctx = browser.new_context(base_url="{base_url}")
+                    pw_page = ctx.new_page()
+                    try:
+                        obj(pw_page)
+                    finally:
+                        pw_page.close()
+                        ctx.close()
+                        browser.close()
+            elif "driver" in sig.parameters:
+                from selenium import webdriver
+                from selenium.webdriver.chrome.options import Options
+                opts = Options()
+                opts.add_argument("--headless=new")
+                opts.add_argument("--no-sandbox")
+                drv = webdriver.Chrome(options=opts)
+                try:
+                    obj(drv)
+                finally:
+                    drv.quit()
             else:
-                print(f"Skipping direct invocation of parameterized test {{name}} in lightweight harness")
+                print(f"Skipping invocation of {{name}}")
         except Exception as e:
             print(f"Error in {{name}}: {{e}}", file=sys.stderr)
+            import traceback
+            traceback.print_exc()
             sys.exit(1)
+
 print("Execution verification completed.")
 """
             tmp.write(harness_code)

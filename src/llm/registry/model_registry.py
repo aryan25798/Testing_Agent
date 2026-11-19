@@ -19,6 +19,14 @@ class ModelRegistry:
         self._cached_models: List[ModelCapability] = []
         self._is_initialized = False
 
+    def set_credentials(self, gemini_api_key: Optional[str] = None, openai_api_key: Optional[str] = None):
+        """Updates provider credentials and refreshes available models."""
+        if gemini_api_key:
+            self.gemini_provider.set_api_key(gemini_api_key)
+        if openai_api_key:
+            self.openai_provider.set_api_key(openai_api_key)
+        return self.refresh_models()
+
     def refresh_models(self) -> List[ModelCapability]:
         """Discovers models from all configured providers and enriches with capabilities."""
         logger.info("Refreshing AI model registry...")

@@ -65,6 +65,13 @@ class AgentModelRouter:
                 "model_id": meta["default_model"],
             }
 
+    def set_credentials(self, gemini_api_key: Optional[str] = None, openai_api_key: Optional[str] = None):
+        """Updates provider instances with new API keys."""
+        if gemini_api_key:
+            self.gemini_provider.set_api_key(gemini_api_key)
+        if openai_api_key:
+            self.openai_provider.set_api_key(openai_api_key)
+
     def get_agent_config(self, agent_id: str) -> Dict[str, str]:
         """Returns the current provider and model configuration for a given agent."""
         if agent_id not in self._agent_configs:

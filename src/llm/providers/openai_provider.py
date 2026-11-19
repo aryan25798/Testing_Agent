@@ -18,12 +18,20 @@ class OpenAIProvider(BaseLLMProvider):
     def __init__(self, api_key: Optional[str] = None):
         super().__init__(api_key=api_key or settings.OPENAI_API_KEY)
         self._client = None
+        self._init_client()
+
+    def _init_client(self):
         if self.api_key:
             try:
                 from openai import OpenAI
                 self._client = OpenAI(api_key=self.api_key)
             except Exception as e:
                 logger.warning(f"Failed to initialize OpenAI client: {e}")
+
+    def set_api_key(self, api_key: str):
+        """Updates API key and re-initializes client dynamically."""
+        self.api_key = api_key
+        self._init_client()
 
     def test_connection(self) -> bool:
         if not self.api_key or not self._client:
@@ -37,10 +45,10 @@ class OpenAIProvider(BaseLLMProvider):
 
     def list_available_models(self) -> List[Dict[str, Any]]:
         default_openai_models = [
-            {"model_id": "gpt-4o", "display_name": "GPT-4o", "context_window": 128000},
-            {"model_id": "gpt-4o-mini", "display_name": "GPT-4o Mini", "context_window": 128000},
-            {"model_id": "o1", "display_name": "o1 Reasoning", "context_window": 200000},
-            {"model_id": "o3-mini", "display_name": "o3 Mini", "context_window": 200000},
+            {"model_id": "gpt-4o", "display_name": "GPT-4o (gpt-4o)", "context_window": 128000},
+            {"model_id": "gpt-4o-mini", "display_name": "GPT-4o Mini (gpt-4o-mini)", "context_window": 128000},
+            {"model_id": "o1", "display_name": "o1 Reasoning (o1)", "context_window": 200000},
+            {"model_id": "o3-mini", "display_name": "o3 Mini (o3-mini)", "context_window": 200000},
         ]
         if not self._client:
             return default_openai_models
@@ -50,12 +58,18 @@ class OpenAIProvider(BaseLLMProvider):
             res = self._client.models.list()
             for m in res.data:
                 mid = m.id
-                if mid.startswith("gpt-") or mid.startswith("o1") or mid.startswith("o3"):
+                lower_id = mid.lower()
+                # Exclude embeddings, audio, tts, whisper, moderation, realtime
+                if any(x in lower_id for x in ["embedding", "tts", "whisper", "dall-e", "moderation", "realtime", "babbage", "davinci"]):
+                    continue
+                # Include chat and reasoning models
+                if lower_id.startswith("gpt-") or lower_id.startswith("o1") or lower_id.startswith("o3") or lower_id.startswith("chatgpt"):
                     discovered.append({
                         "model_id": mid,
-                        "display_name": mid.replace("-", " ").title(),
+                        "display_name": f"{mid.replace('-', ' ').title()} ({mid})",
                         "context_window": 128000,
                     })
+            discovered.sort(key=lambda x: x["model_id"])
             return discovered if discovered else default_openai_models
         except Exception as e:
             logger.warning(f"Failed to retrieve OpenAI models list: {e}. Using catalog.")

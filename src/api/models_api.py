@@ -17,6 +17,57 @@ class SwitchModelRequest(BaseModel):
     model_id: str
 
 
+class SetCredentialsRequest(BaseModel):
+    provider: str
+    api_key: str
+
+
+@router.post("/models/credentials")
+def set_provider_credentials(payload: SetCredentialsRequest):
+    """Sets credentials for Gemini or OpenAI, validates them, and refreshes model registry."""
+    try:
+        from src.config.settings import settings
+        import os
+
+        # Set in provider
+        model_registry.set_credentials(payload.provider, payload.api_key)
+
+        # Update environment variable
+        env_var = "GEMINI_API_KEY" if payload.provider.lower() == "gemini" else "OPENAI_API_KEY"
+        os.environ[env_var] = payload.api_key
+
+        # Update .env file on disk
+        from pathlib import Path
+        env_path = Path(settings.DATABASE_URL.replace("sqlite:///", "")).parent / ".env"
+        if env_path.exists():
+            content = env_path.read_text(encoding="utf-8")
+            lines = content.splitlines()
+            updated = False
+            for i, line in enumerate(lines):
+                if line.startswith(f"{env_var}="):
+                    lines[i] = f"{env_var}={payload.api_key}"
+                    updated = True
+                    break
+            if not updated:
+                lines.append(f"{env_var}={payload.api_key}")
+            env_path.write_text("\n".join(lines), encoding="utf-8")
+
+        # Test and refresh
+        test_results = model_registry.test_providers()
+        is_valid = test_results.get(payload.provider.lower(), False)
+        if is_valid:
+            model_registry.refresh_models()
+
+        return {
+            "status": "success",
+            "provider": payload.provider,
+            "is_valid": is_valid,
+            "available_models_count": len([m for m in model_registry.get_models() if m.is_available]),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.get("/models", response_model=List[ModelInfo])
 def list_models():
     """Lists all dynamically discovered AI models across Gemini and OpenAI."""

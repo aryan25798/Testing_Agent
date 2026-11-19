@@ -140,3 +140,44 @@ class JiraClient:
                     if line:
                         criteria.append(line)
         return criteria if criteria else ["Verify all happy path and error conditions satisfy business requirements."]
+
+    def create_issue(
+        self,
+        project_key: str,
+        summary: str,
+        description: str,
+        issue_type: str = "Bug",
+        priority: str = "Medium",
+    ) -> Dict[str, Any]:
+        """Creates a defect or story in the target Jira project."""
+        url = f"{self.host_url}/rest/api/3/issue"
+        payload = {
+            "fields": {
+                "project": {"key": project_key},
+                "summary": summary,
+                "description": {
+                    "type": "doc",
+                    "version": 1,
+                    "content": [
+                        {
+                            "type": "paragraph",
+                            "content": [{"type": "text", "text": description}],
+                        }
+                    ],
+                },
+                "issuetype": {"name": issue_type},
+                "priority": {"name": priority},
+            }
+        }
+        try:
+            with httpx.Client(timeout=15.0) as client:
+                res = client.post(url, auth=self.auth, headers=self.headers, json=payload)
+                if res.status_code in [200, 201]:
+                    data = res.json()
+                    logger.info(f"Created Jira issue: {data.get('key')}")
+                    return {"success": True, "issue_key": data.get("key"), "id": data.get("id")}
+                else:
+                    return {"success": False, "error": f"HTTP {res.status_code}: {res.text}"}
+        except Exception as e:
+            logger.error(f"Failed to create Jira issue: {e}")
+            return {"success": False, "error": str(e)}

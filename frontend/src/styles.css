@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-[#f4f7fc] text-slate-800 antialiased font-sans selection:bg-blue-100 selection:text-blue-900;
+    overflow-x: hidden;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Sidebar Gradient and Subtle Wave Effect */
+.sidebar-bg {
+  background: #070e1e;
+  background-image: 
+    radial-gradient(circle at 10% 90%, rgba(37, 99, 235, 0.15) 0%, transparent 60%),
+    radial-gradient(circle at 90% 100%, rgba(124, 58, 237, 0.12) 0%, transparent 50%);
+}
+
+/* Hero Banner Gradient */
+.hero-gradient {
+  background: linear-gradient(135deg, #071739 0%, #0d2865 40%, #1e40af 80%, #2563eb 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-gradient::before {
+  content: '';
+  position: absolute;
+  top: -40%;
+  right: -10%;
+  width: 60%;
+  height: 180%;
+  background: radial-gradient(circle, rgba(96, 165, 250, 0.18) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* Glass Card */
+.glass-pill {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}

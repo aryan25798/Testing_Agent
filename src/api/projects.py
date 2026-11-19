@@ -50,11 +50,43 @@ def get_project(project_id: str, db: Session = Depends(get_db)):
     return project
 
 
+@router.put("/{project_id}", response_model=ProjectRead)
+def update_project(project_id: str, payload: ProjectCreate, db: Session = Depends(get_db)):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    project.name = payload.name
+    project.description = payload.description
+    project.framework = payload.framework
+    project.jira_project_key = payload.jira_project_key
+    project.git_repo_url = payload.git_repo_url
+    project.git_branch = payload.git_branch
+    project.base_url = payload.base_url
+    db.commit()
+    db.refresh(project)
+    return project
+
+
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_project(project_id: str, db: Session = Depends(get_db)):
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+
+    # Cascading cleanup
+    exec_ids = [e.id for e in db.query(TestExecution).filter(TestExecution.project_id == project_id).all()]
+    if exec_ids:
+        db.query(TestExecutionResult).filter(TestExecutionResult.execution_id.in_(exec_ids)).delete(synchronize_session=False)
+    db.query(TestExecution).filter(TestExecution.project_id == project_id).delete(synchronize_session=False)
+    db.query(AutomationScript).filter(AutomationScript.project_id == project_id).delete(synchronize_session=False)
+    db.query(TestCase).filter(TestCase.project_id == project_id).delete(synchronize_session=False)
+    db.query(TestScenario).filter(TestScenario.project_id == project_id).delete(synchronize_session=False)
+    db.query(Requirement).filter(Requirement.project_id == project_id).delete(synchronize_session=False)
+    
+    from src.models.entities import ApprovalRequest, AgentExecution
+    db.query(ApprovalRequest).filter(ApprovalRequest.project_id == project_id).delete(synchronize_session=False)
+    db.query(AgentExecution).filter(AgentExecution.project_id == project_id).delete(synchronize_session=False)
+
     db.delete(project)
     db.commit()
     return None

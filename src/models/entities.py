@@ -253,3 +253,17 @@ class AuditLog(Base):
     action = Column(String(100), nullable=False)
     details = Column(JSON, default=dict)
     timestamp = Column(DateTime, default=datetime.utcnow)
+
+
+class CustomAgent(Base):
+    __tablename__ = "custom_agents"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    name = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    category = Column(String(100), default="Specialized QA")
+    system_instructions = Column(Text, nullable=False)
+    provider = Column(String(50), default="gemini")
+    model_id = Column(String(100), default="gemini-2.5-flash")
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)

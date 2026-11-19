@@ -29,12 +29,17 @@ class Settings(BaseSettings):
     # Server Settings
     APP_HOST: str = "127.0.0.1"
     APP_PORT: int = 8000
-    STREAMLIT_PORT: int = 8501
+    FRONTEND_PORT: int = 4200
 
     # Security
     SECRET_KEY: str = "dev_secret_key_testing_agent_platform_2026_local"
     ALLOWED_HOSTS: List[str] = ["*"]
-    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8501", "http://127.0.0.1:8501"]
+    CORS_ORIGINS: List[str] = [
+        "http://localhost:4200",
+        "http://127.0.0.1:4200",
+        "http://localhost:4201",
+        "http://127.0.0.1:4201",
+    ]
 
     # Database
     DATABASE_URL: str = Field(

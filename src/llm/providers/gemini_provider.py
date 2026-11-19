@@ -18,15 +18,23 @@ class GeminiProvider(BaseLLMProvider):
     def __init__(self, api_key: Optional[str] = None):
         super().__init__(api_key=api_key or settings.GEMINI_API_KEY)
         self._client = None
+        self._init_client()
+
+    def _init_client(self):
         if self.api_key:
             try:
                 from google import genai
-                self._client = genai.Client(api_key=self.api_key)
+                self._client = genai.Client(api_key=self.api_key, http_options={"api_version": "v1beta"})
             except Exception as e:
                 logger.warning(f"Failed to initialize google-genai client: {e}")
 
+    def set_api_key(self, api_key: str):
+        """Updates API key and re-initializes client dynamically."""
+        self.api_key = api_key
+        self._init_client()
+
     def test_connection(self) -> bool:
-        if not self.api_key:
+        if not self.api_key or not self._client:
             return False
         try:
             models = self.list_available_models()
@@ -49,12 +57,21 @@ class GeminiProvider(BaseLLMProvider):
             discovered = []
             for m in self._client.models.list():
                 model_name = m.name.replace("models/", "") if hasattr(m, "name") else str(m)
-                if "gemini" in model_name.lower():
-                    discovered.append({
-                        "model_id": model_name,
-                        "display_name": model_name.replace("-", " ").title(),
-                        "context_window": 1000000,
-                    })
+                actions = getattr(m, "supported_actions", None) or []
+
+                # Filter out pure embedding, aqa, and non-generative models
+                if actions and "generateContent" not in actions:
+                    continue
+                if any(x in model_name.lower() for x in ["embedding", "aqa", "text-embedding"]):
+                    continue
+
+                raw_display = getattr(m, "display_name", None)
+                display_name = raw_display if raw_display else model_name.replace("-", " ").title()
+                discovered.append({
+                    "model_id": model_name,
+                    "display_name": f"{display_name} ({model_name})",
+                    "context_window": getattr(m, "input_token_limit", 1000000) or 1000000,
+                })
             return discovered if discovered else default_gemini_models
         except Exception as e:
             logger.warning(f"Could not fetch dynamic models list from Gemini API: {e}. Using catalog.")
@@ -123,7 +140,7 @@ class GeminiProvider(BaseLLMProvider):
 
         schema_instruction = ""
         if output_schema:
-            schema_instruction = f"\nYou MUST respond exclusively with valid JSON conforming to this schema:\n{json.dumps(output_schema.model_json_schema())}\nDo not wrap output in markdown code blocks."
+            schema_instruction = f"\nYou MUST respond exclusively with a valid JSON object matching this schema:\n{json.dumps(output_schema.model_json_schema())}\nDo not wrap output in markdown code blocks or backticks."
 
         full_prompt = f"{prompt}\n{schema_instruction}"
 
@@ -134,14 +151,21 @@ class GeminiProvider(BaseLLMProvider):
                     config["system_instruction"] = system_prompt
                 if output_schema:
                     config["response_mime_type"] = "application/json"
-                    config["response_schema"] = output_schema
 
                 response = self._client.models.generate_content(
                     model=target_model,
                     contents=full_prompt,
                     config=config,
                 )
-                raw_text = response.text or "{}"
+                raw_text = (response.text or "{}").strip()
+                if raw_text.startswith("```json"):
+                    raw_text = raw_text[7:]
+                elif raw_text.startswith("```"):
+                    raw_text = raw_text[3:]
+                if raw_text.endswith("```"):
+                    raw_text = raw_text[:-3]
+                raw_text = raw_text.strip()
+
                 latency = time.time() - start_time
                 data = json.loads(raw_text)
                 return LLMResponse(

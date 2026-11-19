@@ -20,6 +20,8 @@ from src.api.approvals import router as approvals_router
 from src.api.models_api import router as models_router
 from src.api.integrations_api import router as integrations_router
 from src.api.workflows_api import router as workflows_router
+from src.api.dashboard_api import router as dashboard_router
+from src.api.custom_agents_api import router as custom_agents_router
 
 logger = get_logger("main")
 
@@ -69,6 +71,8 @@ app.include_router(approvals_router, prefix="/api/v1")
 app.include_router(models_router, prefix="/api/v1")
 app.include_router(integrations_router, prefix="/api/v1")
 app.include_router(workflows_router, prefix="/api/v1")
+app.include_router(dashboard_router, prefix="/api/v1")
+app.include_router(custom_agents_router, prefix="/api/v1")
 
 
 @app.get("/")
