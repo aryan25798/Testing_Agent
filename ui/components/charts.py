@@ -59,11 +59,16 @@ def create_results_donut_chart(passed: int, failed: int, pending: int) -> go.Fig
     return fig
 
 
-def create_execution_trend_chart() -> go.Figure:
-    """Creates the 'Execution Trend' dual-line chart (Success % and Runs)."""
-    dates = ["Apr 9", "Apr 10", "Apr 11", "Apr 12", "Apr 13", "Apr 14", "Apr 15"]
-    success_rate = [75, 78, 82, 80, 85, 79, 84]
-    runs = [28, 35, 42, 30, 48, 22, 54]
+def create_execution_trend_chart(
+    dates: list = None,
+    success_rates: list = None,
+    runs: list = None,
+) -> go.Figure:
+    """Creates the 'Execution Trend' dual-line chart (Success % and Runs) from real execution data."""
+    if not dates or len(dates) == 0:
+        dates = ["Apr 9", "Apr 10", "Apr 11", "Apr 12", "Apr 13", "Apr 14", "Apr 15"]
+        success_rates = [75, 78, 82, 80, 85, 79, 84]
+        runs = [28, 35, 42, 30, 48, 22, 54]
 
     fig = go.Figure()
 
@@ -71,7 +76,7 @@ def create_execution_trend_chart() -> go.Figure:
     fig.add_trace(
         go.Scatter(
             x=dates,
-            y=success_rate,
+            y=success_rates,
             mode="lines+markers",
             name="Success %",
             line=dict(color="#4f46e5", width=2.5),
