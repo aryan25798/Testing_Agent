@@ -45,14 +45,11 @@ class GitClient:
             return {"connected": False, "error": str(e)}
 
     def list_repositories(self) -> List[Dict[str, Any]]:
-        """Lists user accessible repositories."""
+        """Lists user accessible repositories from GitHub API."""
         if not self.token:
-            return [
-                {"name": "ecommerce-frontend", "full_name": "demo-org/ecommerce-frontend", "default_branch": "main"},
-                {"name": "checkout-service", "full_name": "demo-org/checkout-service", "default_branch": "main"},
-            ]
+            raise ValueError("GitHub Personal Access Token (PAT) is required to retrieve your client repositories.")
 
-        url = f"{self.host_url}/user/repos?per_page=30&sort=updated"
+        url = f"{self.host_url}/user/repos?per_page=50&sort=updated"
         try:
             with httpx.Client(timeout=10.0) as client:
                 res = client.get(url, headers=self.headers)
@@ -63,28 +60,57 @@ class GitClient:
                             "full_name": r.get("full_name"),
                             "default_branch": r.get("default_branch", "main"),
                             "html_url": r.get("html_url"),
+                            "private": r.get("private", False),
                         }
                         for r in res.json()
                     ]
+                else:
+                    raise ValueError(f"GitHub returned HTTP {res.status_code}: {res.text}")
         except Exception as e:
-            logger.warning(f"Error fetching repos: {e}")
-
-        return [
-            {"name": "ecommerce-frontend", "full_name": "demo-org/ecommerce-frontend", "default_branch": "main"},
-        ]
+            logger.error(f"Error fetching GitHub repos: {e}")
+            raise ValueError(f"Could not fetch repositories: {e}")
 
     def inspect_repository_structure(self, repo_full_name: str, branch: str = "main") -> Dict[str, Any]:
         """
-        Safely inspects repository tree to detect existing testing frameworks,
-        page objects, and dependencies without downloading full code.
+        Safely inspects repository tree via GitHub Git Trees API to detect
+        actual testing frameworks, locators, and file tree.
         """
-        detected = {
-            "has_tests_dir": True,
-            "detected_framework": "playwright",
-            "existing_test_files": ["tests/test_checkout.py", "tests/pages/checkout_page.py"],
-            "has_pytest": True,
-            "has_playwright": True,
-            "has_selenium": False,
-            "page_objects_pattern": True,
-        }
-        return detected
+        tree_url = f"{self.host_url}/repos/{repo_full_name}/git/trees/{branch}?recursive=1"
+        try:
+            with httpx.Client(timeout=12.0) as client:
+                res = client.get(tree_url, headers=self.headers)
+                if res.status_code == 200:
+                    tree_data = res.json().get("tree", [])
+                    paths = [item.get("path", "") for item in tree_data]
+
+                    has_tests_dir = any("test" in p.lower() for p in paths)
+                    test_files = [p for p in paths if p.endswith((".py", ".js", ".ts")) and ("test" in p.lower() or "spec" in p.lower())]
+
+                    has_playwright = any("playwright" in p.lower() for p in paths)
+                    has_selenium = any("selenium" in p.lower() for p in paths)
+                    has_pytest = any("conftest.py" in p or "pytest" in p.lower() for p in paths)
+
+                    detected_fw = "playwright" if has_playwright else ("selenium" if has_selenium else "none")
+
+                    return {
+                        "repository": repo_full_name,
+                        "branch": branch,
+                        "total_files": len(paths),
+                        "has_tests_dir": has_tests_dir,
+                        "detected_framework": detected_fw,
+                        "existing_test_files": test_files[:10],
+                        "has_playwright": has_playwright,
+                        "has_selenium": has_selenium,
+                        "has_pytest": has_pytest,
+                        "file_samples": paths[:15],
+                    }
+                else:
+                    raise ValueError(f"GitHub Tree API returned HTTP {res.status_code}: {res.text}")
+        except Exception as e:
+            logger.error(f"Error inspecting repo {repo_full_name}: {e}")
+            return {
+                "repository": repo_full_name,
+                "branch": branch,
+                "error": str(e),
+                "detected_framework": "playwright",
+            }

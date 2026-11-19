@@ -116,46 +116,115 @@ def render_testing_wizard(selected_project: Optional[Project]):
 
     # STEP 2: Connect Jira or Upload Requirements
     elif current_step == 2:
-        st.markdown("### STEP 2 — Provide Software Requirements")
+        st.markdown("### STEP 2 — Provide Client Project & Requirements")
         render_beginner_tip(
-            "What are Requirements?",
-            "Requirements describe what the software should do (e.g. 'Users must be able to log in with email and password'). You can upload a document, paste text, or connect to Jira."
+            "How to provide requirements?",
+            "You can upload your real client project ZIP archive, upload a document (PDF, Word, Excel, CSV), paste user stories in plain English, or connect your Jira Cloud account directly."
         )
 
-        tab1, tab2, tab3 = st.tabs(["📄 Upload Document", "✍️ Enter Text Manually", "🔗 Connect Jira"])
+        tab_zip, tab_doc, tab_manual, tab_jira = st.tabs([
+            "📦 Upload Project ZIP",
+            "📄 Upload Document",
+            "✍️ Enter Text Manually",
+            "🔗 Connect Live Jira"
+        ])
 
-        with tab1:
-            uploaded_file = st.file_uploader("Upload PRD, User Stories, or Spec (PDF, Word, Excel, CSV, Text)", type=["pdf", "docx", "xlsx", "csv", "txt", "md"])
+        with tab_zip:
+            st.markdown("#### Upload Client Project Archive (.ZIP)")
+            st.caption("Upload your frontend or full-stack web project. The AI will inspect components, forms, and pages to tailor automated tests directly to your code.")
+            uploaded_zip = st.file_uploader("Select Client Project ZIP", type=["zip"], key="client_zip_uploader")
+            if uploaded_zip is not None:
+                content = uploaded_zip.read()
+                try:
+                    with st.spinner("Extracting and analyzing client codebase..."):
+                        zip_analysis = DocumentParser._parse_project_zip(content)
+                    st.success(f"Successfully analyzed {uploaded_zip.name}!")
+                    st.text_area("Extracted Codebase Architecture & UI Locators", zip_analysis, height=200)
+                    st.session_state.wizard_raw_text = zip_analysis
+                    st.session_state.wizard_source_type = "project_zip"
+                except Exception as e:
+                    st.error(f"Error parsing project ZIP: {e}")
+
+        with tab_doc:
+            st.markdown("#### Upload Requirement Documents")
+            uploaded_file = st.file_uploader("Upload PRD, Specification, or Test Plan (PDF, DOCX, XLSX, CSV, TXT, MD)", type=["pdf", "docx", "xlsx", "csv", "txt", "md"], key="doc_uploader")
             if uploaded_file is not None:
                 content = uploaded_file.read()
                 try:
                     parsed_text = DocumentParser.parse_file(content, uploaded_file.name)
                     st.success(f"Successfully extracted {len(parsed_text)} characters from {uploaded_file.name}")
-                    st.text_area("Extracted Requirements Preview", parsed_text[:600], height=150)
+                    st.text_area("Extracted Requirements Preview", parsed_text[:800], height=180)
                     st.session_state.wizard_raw_text = parsed_text
                     st.session_state.wizard_source_type = "file"
                 except Exception as e:
                     st.error(f"Error parsing file: {e}")
 
-        with tab2:
+        with tab_manual:
+            st.markdown("#### Enter Plain-English User Stories")
             manual_text = st.text_area(
-                "Paste your requirements or user stories here",
-                value=st.session_state.get("wizard_raw_text", "Feature: User Checkout\nAs a customer, I want to add products to my cart and complete payment using credit card.\nAcceptance Criteria:\n1. Cart total updates automatically.\n2. Card number must be 16 digits.\n3. Confirmation email sent after payment."),
+                "Write or paste your requirements here:",
+                value=st.session_state.get("wizard_raw_text", "Feature: Client User Authentication & Dashboard\nAs a client user, I want to securely log in with email and password.\nAcceptance Criteria:\n1. Email must be valid format.\n2. Password must be at least 8 characters.\n3. Failed login displays 'Invalid credentials' without exposing system internals.\n4. Successful login redirects to client dashboard within 2 seconds."),
                 height=180
             )
             if manual_text.strip():
                 st.session_state.wizard_raw_text = manual_text.strip()
                 st.session_state.wizard_source_type = "manual"
 
-        with tab3:
-            st.info("Jira integration retrieves user stories and acceptance criteria automatically.")
-            jira_host = st.text_input("Jira URL", placeholder="https://yourcompany.atlassian.net")
-            jira_email = st.text_input("Jira Email", placeholder="user@company.com")
-            jira_token = st.text_input("Jira API Token", type="password")
-            if st.button("Fetch Jira Stories"):
-                st.session_state.wizard_raw_text = "As a user, I want to authenticate and complete checkout via Jira Story ECOM-101."
-                st.session_state.wizard_source_type = "jira"
-                st.success("Loaded Jira issues!")
+        with tab_jira:
+            st.markdown("#### Connect Live Jira Cloud")
+            st.caption("Pull real user stories, acceptance criteria, and linked issues from your Jira workspace.")
+            col_j1, col_j2 = st.columns(2)
+            with col_j1:
+                jira_host = st.text_input("Jira URL", placeholder="https://yourcompany.atlassian.net", key="wiz_jira_host")
+                jira_email = st.text_input("Account Email", placeholder="user@company.com", key="wiz_jira_email")
+            with col_j2:
+                jira_token = st.text_input("Atlassian API Token", type="password", key="wiz_jira_token")
+
+            if st.button("🔌 1. Connect & List Jira Projects"):
+                if not jira_host or not jira_email or not jira_token:
+                    st.error("Please provide your Jira URL, Email, and API Token.")
+                else:
+                    from src.integrations.jira.jira_client import JiraClient
+                    jc = JiraClient(host_url=jira_host, email=jira_email, api_token=jira_token)
+                    conn_res = jc.test_connection()
+                    if conn_res.get("connected"):
+                        st.success(f"Connected to Jira as: {conn_res.get('display_name')}")
+                        try:
+                            projs = jc.get_projects()
+                            st.session_state.jira_projects_list = projs
+                        except Exception as e:
+                            st.error(str(e))
+                    else:
+                        st.error(f"Jira Connection Failed: {conn_res.get('error')}")
+
+            if "jira_projects_list" in st.session_state and st.session_state.jira_projects_list:
+                j_projs = st.session_state.jira_projects_list
+                chosen_proj_key = st.selectbox("Select Jira Project", [p["key"] for p in j_projs], format_func=lambda k: f"{k} - {next((p['name'] for p in j_projs if p['key']==k), '')}")
+                if st.button("📥 2. Retrieve User Stories from Selected Project"):
+                    from src.integrations.jira.jira_client import JiraClient
+                    jc = JiraClient(host_url=jira_host, email=jira_email, api_token=jira_token)
+                    try:
+                        with st.spinner("Fetching Jira issues..."):
+                            issues = jc.get_issues(project_key=chosen_proj_key)
+                        st.session_state.jira_fetched_issues = issues
+                        st.success(f"Retrieved {len(issues)} Jira stories!")
+                    except Exception as e:
+                        st.error(str(e))
+
+            if "jira_fetched_issues" in st.session_state and st.session_state.jira_fetched_issues:
+                st.markdown("##### Select Issues to Ingest:")
+                selected_stories_text = []
+                for iss in st.session_state.jira_fetched_issues:
+                    use_this = st.checkbox(f"**{iss['key']}**: {iss['summary']} ({iss.get('priority', 'Medium')})", value=True)
+                    if use_this:
+                        criteria_str = "\n".join([f"  - {ac}" for ac in iss.get("acceptance_criteria", [])])
+                        selected_stories_text.append(f"Issue {iss['key']}: {iss['summary']}\nDescription: {iss.get('description', '')}\nAcceptance Criteria:\n{criteria_str}")
+
+                if selected_stories_text:
+                    full_jira_text = "\n\n---\n\n".join(selected_stories_text)
+                    st.session_state.wizard_raw_text = full_jira_text
+                    st.session_state.wizard_source_type = "jira"
+                    st.info(f"Ingested {len(selected_stories_text)} Jira user stories for AI analysis.")
 
         col_back, col_next = st.columns([1, 4])
         with col_back:
@@ -171,13 +240,44 @@ def render_testing_wizard(selected_project: Optional[Project]):
     elif current_step == 3:
         st.markdown("### STEP 3 — Connect Git Repository (Optional)")
         render_beginner_tip(
-            "Why Git?",
-            "If your code or website is in a Git repository (like GitHub or GitLab), the AI can inspect your existing project to match page selectors. If you are testing an external website or just need manual tests, you can skip this step!"
+            "Why Connect Git?",
+            "If your client code is on GitHub, the AI can inspect your repository tree to find existing test frameworks and page locators. If you already uploaded a Project ZIP or are testing an external URL, you can skip this step!"
         )
 
-        git_provider = st.selectbox("Git Provider", ["GitHub", "GitLab", "Bitbucket", "Azure DevOps"])
-        repo_url = st.text_input("Repository URL (Optional)", placeholder="https://github.com/my-org/web-app")
-        branch_name = st.text_input("Branch", value="main")
+        col_g1, col_g2 = st.columns(2)
+        with col_g1:
+            git_provider = st.selectbox("Git Provider", ["GitHub", "GitLab", "Bitbucket", "Azure DevOps"])
+            gh_token = st.text_input("GitHub Personal Access Token (PAT)", type="password", help="Requires repo read permission")
+        with col_g2:
+            if st.button("🔍 Fetch My Repositories"):
+                if not gh_token:
+                    st.warning("Please enter your GitHub token.")
+                else:
+                    from src.integrations.git.git_client import GitClient
+                    gc = GitClient(provider="github", token=gh_token)
+                    try:
+                        with st.spinner("Connecting to GitHub API..."):
+                            user_repos = gc.list_repositories()
+                            st.session_state.gh_repos_list = user_repos
+                            st.success(f"Found {len(user_repos)} repositories!")
+                    except Exception as e:
+                        st.error(str(e))
+
+        if "gh_repos_list" in st.session_state and st.session_state.gh_repos_list:
+            repo_names = [r["full_name"] for r in st.session_state.gh_repos_list]
+            selected_repo = st.selectbox("Select Client Repository", repo_names)
+            branch = st.text_input("Branch Name", value="main")
+
+            if st.button("🔬 Inspect Repository Structure"):
+                from src.integrations.git.git_client import GitClient
+                gc = GitClient(provider="github", token=gh_token)
+                try:
+                    with st.spinner(f"Inspecting {selected_repo} ({branch})..."):
+                        inspection = gc.inspect_repository_structure(repo_full_name=selected_repo, branch=branch)
+                    st.json(inspection)
+                    st.session_state.git_inspection_result = inspection
+                except Exception as e:
+                    st.error(str(e))
 
         col_back, col_next = st.columns([1, 4])
         with col_back:

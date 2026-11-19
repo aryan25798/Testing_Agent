@@ -248,6 +248,22 @@ with st.sidebar:
             label_visibility="collapsed",
         )
         current_project = next((p for p in all_projects if p.id == selected_id), None)
+
+        col_p1, col_p2 = st.columns(2)
+        with col_p1:
+            if st.button("➕ New Project", use_container_width=True):
+                st.session_state.wizard_step = 1
+                st.session_state.nav_exec_override = "Start Testing (Wizard)"
+                st.rerun()
+        with col_p2:
+            if current_project and st.button("🗑️ Delete", use_container_width=True, help=f"Delete '{current_project.name}' and all its test data"):
+                with SessionLocal() as db:
+                    p_to_del = db.query(Project).filter(Project.id == current_project.id).first()
+                    if p_to_del:
+                        db.delete(p_to_del)
+                        db.commit()
+                st.success("Project deleted!")
+                st.rerun()
     else:
         current_project = None
 
@@ -293,7 +309,9 @@ with st.sidebar:
     )
 
     # Determine Active View
-    if nav_settings:
+    if "nav_exec_override" in st.session_state and st.session_state.nav_exec_override:
+        active_view = st.session_state.pop("nav_exec_override")
+    elif nav_settings:
         active_view = nav_settings
     elif nav_exec:
         active_view = nav_exec
@@ -320,7 +338,7 @@ with st.sidebar:
 
 
 # --- TOP BAR ---
-render_top_header(user_name="Aryan")
+render_top_header("Aryan")
 
 
 # --- VIEW ROUTING ---

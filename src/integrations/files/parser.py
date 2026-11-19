@@ -27,10 +27,12 @@ class DocumentParser:
             return DocumentParser._parse_excel(file_content)
         elif ext == ".csv":
             return DocumentParser._parse_csv(file_content)
+        elif ext == ".zip":
+            return DocumentParser._parse_project_zip(file_content)
         elif ext in [".txt", ".md", ".json"]:
             return DocumentParser._parse_text(file_content)
         else:
-            raise ValidationError(f"Unsupported file format: {ext}. Supported: PDF, DOCX, XLSX, CSV, TXT, MD.")
+            raise ValidationError(f"Unsupported file format: {ext}. Supported: PDF, DOCX, XLSX, CSV, ZIP, TXT, MD.")
 
     @staticmethod
     def _parse_pdf(content: bytes) -> str:
@@ -106,3 +108,61 @@ class DocumentParser:
             return content.decode("utf-8", errors="replace")
         except Exception as e:
             raise ValidationError(f"Failed to decode text file: {e}")
+
+    @staticmethod
+    def _parse_project_zip(content: bytes, destination_dir: Any = None) -> str:
+        import zipfile
+        try:
+            with zipfile.ZipFile(io.BytesIO(content)) as zf:
+                file_list = zf.namelist()
+                # Security: prevent zip slip path traversal
+                for member in file_list:
+                    if member.startswith("/") or ".." in member:
+                        raise ValidationError("Security Error: Insecure ZIP archive containing relative path traversal.")
+
+                if destination_dir:
+                    dest = Path(destination_dir)
+                    dest.mkdir(parents=True, exist_ok=True)
+                    zf.extractall(dest)
+
+                summary_lines = [f"=== Client Project Archive Analysis ({len(file_list)} files) ==="]
+
+                readme_files = [f for f in file_list if "readme" in f.lower() and not f.endswith("/")]
+                if readme_files:
+                    readme_content = zf.read(readme_files[0]).decode("utf-8", errors="replace")
+                    summary_lines.append(f"\n--- Readme Overview ({readme_files[0]}) ---\n{readme_content[:1500]}")
+
+                # Identify source code files
+                code_files = [
+                    f for f in file_list
+                    if f.endswith((".py", ".js", ".ts", ".jsx", ".tsx", ".html"))
+                    and not any(x in f for x in ["node_modules", ".venv", "__pycache__", "dist", "build"])
+                ]
+
+                summary_lines.append(f"\nDetected Source Code Files ({len(code_files)} files):")
+                for cf in code_files[:15]:
+                    summary_lines.append(f"  - {cf}")
+
+                # Extract UI elements (forms, inputs, buttons, test-ids)
+                ui_files = [f for f in code_files if f.endswith((".html", ".jsx", ".tsx", ".vue"))]
+                ui_elements_found = []
+                for uf in ui_files[:6]:
+                    try:
+                        u_text = zf.read(uf).decode("utf-8", errors="replace")
+                        for line in u_text.splitlines():
+                            line_s = line.strip()
+                            if any(k in line_s.lower() for k in ["<form", "<input", "<button", "id=", "name=", "data-testid="]):
+                                if len(line_s) < 140:
+                                    ui_elements_found.append(f"[{uf}] {line_s}")
+                    except Exception:
+                        pass
+
+                if ui_elements_found:
+                    summary_lines.append("\nDetected Client UI Form & Action Locators:")
+                    for el in ui_elements_found[:20]:
+                        summary_lines.append(f"  {el}")
+
+                return "\n".join(summary_lines)
+        except Exception as e:
+            logger.error(f"Error parsing ZIP archive: {e}")
+            raise ValidationError(f"Failed to process project ZIP archive: {e}")

@@ -64,13 +64,10 @@ class JiraClient:
                         for p in projects
                     ]
                 else:
-                    raise IntegrationError(f"Failed to fetch Jira projects: HTTP {response.status_code}")
+                    raise IntegrationError(f"Failed to fetch Jira projects: HTTP {response.status_code} - {response.text}")
         except Exception as e:
-            logger.warning(f"Error fetching Jira projects: {e}. Providing default projects list.")
-            return [
-                {"key": "TEST", "name": "Testing Platform Demo", "id": "10001", "project_type": "software"},
-                {"key": "ECOM", "name": "E-Commerce Checkout", "id": "10002", "project_type": "software"},
-            ]
+            logger.error(f"Error fetching Jira projects: {e}")
+            raise IntegrationError(f"Could not connect to Jira projects: {e}")
 
     def get_issues(self, project_key: str, max_results: int = 50) -> List[Dict[str, Any]]:
         """Fetches issues for a given project with custom field resolution."""
@@ -104,38 +101,10 @@ class JiraClient:
                         })
                     return issues
                 else:
-                    raise IntegrationError(f"Failed to fetch Jira issues: HTTP {response.status_code}")
+                    raise IntegrationError(f"Failed to fetch Jira issues for {project_key}: HTTP {response.status_code} - {response.text}")
         except Exception as e:
-            logger.warning(f"Error fetching Jira issues: {e}. Providing sample issues for project {project_key}.")
-            return [
-                {
-                    "key": f"{project_key}-101",
-                    "summary": "User Checkout and Payment Processing",
-                    "description": "As a customer, I want to add items to my cart and complete payment with credit card.",
-                    "acceptance_criteria": [
-                        "User can enter valid card details and see confirmation within 3 seconds",
-                        "Invalid card numbers must display clear validation error",
-                        "Cart total must recalculate automatically when quantities change",
-                    ],
-                    "issue_type": "Story",
-                    "priority": "High",
-                    "status": "Ready for Testing",
-                    "labels": ["checkout", "payment"],
-                },
-                {
-                    "key": f"{project_key}-102",
-                    "summary": "User Registration and Password Policy Validation",
-                    "description": "Users must be able to sign up with email and secure password.",
-                    "acceptance_criteria": [
-                        "Password must be at least 8 characters with 1 number and 1 special char",
-                        "Duplicate email addresses must be rejected with 'Email already registered'",
-                    ],
-                    "issue_type": "Story",
-                    "priority": "Medium",
-                    "status": "Ready for Testing",
-                    "labels": ["auth"],
-                },
-            ]
+            logger.error(f"Error fetching Jira issues: {e}")
+            raise IntegrationError(f"Could not retrieve issues for Jira project {project_key}: {e}")
 
     def _extract_description(self, raw_desc: Any) -> str:
         if not raw_desc:

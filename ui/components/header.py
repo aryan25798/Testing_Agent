@@ -5,8 +5,9 @@ Top Navigation Header Component.
 import streamlit as st
 
 
-def render_top_header(user_name: str = "Aryan"):
-    initials = "".join([part[0].upper() for part in user_name.split() if part])[:2] or "A"
+def render_top_header(user_name: str = "Aryan", *args, **kwargs):
+    clean_name = kwargs.get("user_name", user_name) or "Aryan"
+    initials = "".join([part[0].upper() for part in clean_name.split() if part])[:2] or "A"
     st.markdown(
         f"""
         <div class="top-nav-bar">
@@ -21,7 +22,7 @@ def render_top_header(user_name: str = "Aryan"):
                 <div class="nav-pill">Reports</div>
             </div>
             <div style="display:flex; align-items:center; gap:0.75rem;">
-                <div style="font-size:0.8rem; color:#64748b; font-weight:500;">{user_name}</div>
+                <div style="font-size:0.8rem; color:#64748b; font-weight:500;">{clean_name}</div>
                 <div class="top-avatar-pill">{initials}</div>
             </div>
         </div>
