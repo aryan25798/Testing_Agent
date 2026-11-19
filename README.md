@@ -1,14 +1,146 @@
 # AI Testing Assistant Platform
 
-An autonomous, multi-agent platform for intelligent software testing, test scenario design, Playwright automation execution, and quality analytics.
+[![Angular](https://img.shields.io/badge/Angular-19-DD0031?style=flat&logo=angular&logoColor=white)](https://angular.dev/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?style=flat&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python&logoColor=white)](https://www.python.org/)
+[![Playwright](https://img.shields.io/badge/Playwright-1.40+-2EAD33?style=flat&logo=playwright&logoColor=white)](https://playwright.dev/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-38B2AC?style=flat&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
+[![SQLite](https://img.shields.io/badge/SQLite-SQLAlchemy-003B57?style=flat&logo=sqlite&logoColor=white)](https://www.sqlite.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+An **autonomous, multi-agent AI testing system** built for enterprise QA engineers, SDETs, and software teams. The platform automates the end-to-end software quality lifecycle: from parsing Jira requirements and user stories to generating comprehensive boundary test scenarios, designing executable test cases, generating robust Playwright automation scripts, executing tests in sandboxed headless browsers, and generating executive audit-ready test reports.
 
 ---
 
-## 🚀 Quick Start on a New Machine (Clone & Run)
+## 📑 Table of Contents
 
-Follow these steps when cloning this repository onto another PC:
+- [Key Capabilities](#-key-capabilities)
+- [System Architecture](#-system-architecture)
+- [Multi-Agent Team](#-multi-agent-team)
+- [Technology Stack](#-technology-stack)
+- [Quick Start on a New PC](#-quick-start-on-a-new-pc)
+  - [Prerequisites](#1-prerequisites)
+  - [Step 1: Clone Repository](#step-1-clone-repository)
+  - [Step 2: Backend Setup (FastAPI)](#step-2-backend-setup-fastapi)
+  - [Step 3: Frontend Setup (Angular)](#step-3-frontend-setup-angular)
+- [Configuring API Keys](#-configuring-api-keys)
+  - [Method 1: Direct in Web Dashboard (Recommended)](#method-1-direct-in-web-dashboard-recommended)
+  - [Method 2: In `.env` Configuration File](#method-2-in-env-configuration-file)
+  - [Method 3: In System Environment Variables](#method-3-in-system-environment-variables)
+- [Enterprise Integrations](#-enterprise-integrations)
+  - [Jira Software Cloud](#jira-software-cloud)
+  - [GitHub Repositories](#github-repositories)
+- [Project Directory Structure](#-project-directory-structure)
+- [Running Automated Tests](#-running-automated-tests)
+- [Security & Data Isolation](#-security--data-isolation)
+- [Contributing & License](#-contributing--license)
 
-### 1. Clone the Repository
+---
+
+## 🌟 Key Capabilities
+
+- **Modern Angular 19 UI**: Built with Angular standalone components, responsive collapsible navigation, dark/light theme switching, and real-time Apache ECharts analytics.
+- **Independent Per-Agent Model Routing**: Assign different LLM models to each testing agent (e.g. Gemini 2.5 Flash for rapid scenario extraction, GPT-4o for complex locator automation, Gemini 2.5 Pro for deep reasoning).
+- **Dynamic Model Discovery**: Fetches all available live endpoints dynamically from Google Gemini and OpenAI without hardcoded model lists.
+- **100% Local Single-Tenant Isolation**: All projects, requirements, test cases, and agent execution checkpoints are stored permanently on your machine in an isolated SQLite database (`testing_platform.db`).
+- **Resilient Playwright Automation**: Generates robust, maintainable Python Playwright automation code adhering to the Page Object Model (POM) pattern with resilient locator fallbacks.
+- **Sandboxed Test Runner**: Executes test scripts in controlled headless/headed browser sessions, classifying test outcomes into Passed, Failed, Blocked, or Error with full stack traces.
+- **Executive Audit Reports**: Generates consolidated coverage reports with one-click export to PDF and CSV formats.
+
+---
+
+## 🏗 System Architecture
+
+```mermaid
+flowchart TD
+    subgraph UI ["Frontend (Angular 19 + Tailwind CSS)"]
+        Dashboard["Dashboard & Analytics"]
+        ModelsConfig["AI Model Settings"]
+        WorkflowsUI["Agent Workflow Studio"]
+        TestCasesUI["Test Case Management"]
+    end
+
+    subgraph API ["Backend API (FastAPI)"]
+        Router["FastAPI REST & WebSocket Gateway"]
+        ModelRegistry["Dynamic Model Registry & Router"]
+        DBEngine["SQLAlchemy Engine (SQLite)"]
+    end
+
+    subgraph Agents ["LangGraph Multi-Agent Orchestrator"]
+        A1["Requirement Analysis Agent"]
+        A2["Test Scenario Generator"]
+        A3["Test Case Designer"]
+        A4["Test Automation Agent"]
+        A5["Test Execution Agent"]
+        A6["Test Reporting Agent"]
+    end
+
+    subgraph External ["External Services & Providers"]
+        GeminiAPI["Google Gemini API (2.5 Flash / Pro)"]
+        OpenAIAPI["OpenAI API (GPT-4o / o1)"]
+        JiraCloud["Atlassian Jira Software"]
+        GitHubAPI["GitHub Repositories"]
+        PlaywrightSandbox["Playwright Browser Sandbox"]
+    end
+
+    UI <-->|REST / SSE| Router
+    Router <--> DBEngine
+    Router <--> ModelRegistry
+    Router <--> Agents
+    ModelRegistry <--> GeminiAPI
+    ModelRegistry <--> OpenAIAPI
+    Agents <--> ModelRegistry
+    Agents --> PlaywrightSandbox
+    Router <--> JiraCloud
+    Router <--> GitHubAPI
+```
+
+---
+
+## 🤖 Multi-Agent Team
+
+| Agent | Responsibility | Recommended Model |
+| :--- | :--- | :--- |
+| **Requirement Analysis Agent** | Ingests PRDs, Jira user stories, or architecture files and extracts functional rules, non-functional criteria, and business constraints. | `gemini-2.5-flash` |
+| **Test Scenario Generator** | Generates positive, negative, boundary, edge-case, and security test scenarios with high coverage. | `gemini-2.5-flash` |
+| **Test Case Designer** | Converts scenarios into detailed, step-by-step executable test cases with preconditions, test inputs, and expected outcomes. | `gemini-2.5-flash` |
+| **Test Automation Agent** | Generates robust, maintainable Python Playwright automation scripts implementing Page Object Model (POM) patterns. | `gpt-4o` / `gemini-2.5-pro` |
+| **Test Execution Agent** | Executes test scripts in sandboxed browser sessions and performs root-cause failure analysis. | `gemini-2.5-flash` |
+| **Test Reporting Agent** | Aggregates execution metrics, calculates pass/fail ratios, and produces executive markdown summaries. | `gemini-2.5-flash` |
+
+---
+
+## 💻 Technology Stack
+
+### Frontend Client
+- **Framework**: Angular 19 (Standalone Components, Signals, RxJS)
+- **Styling**: Tailwind CSS 3.4 with custom enterprise dark mode palette
+- **Charts & Data Visualization**: Apache ECharts
+- **Icons**: Lucide SVG Architecture
+- **Routing**: Angular Router with lazy-loaded routes
+
+### Backend Server
+- **Runtime**: Python 3.11+
+- **API Framework**: FastAPI (Asynchronous REST endpoints)
+- **Agent Orchestration**: LangGraph / LangChain StateGraph
+- **LLM Abstraction**: LiteLLM & Native Google Generative AI SDK
+- **Database ORM**: SQLAlchemy 2.0 with SQLite engine
+- **Browser Automation**: Playwright Python Sandbox
+
+---
+
+## 🚀 Quick Start on a New PC
+
+Follow these steps to set up and run the platform when cloning on a new computer:
+
+### 1. Prerequisites
+- **Git**: [git-scm.com](https://git-scm.com/)
+- **Python**: Version `3.11` or higher ([python.org](https://www.python.org/downloads/))
+- **Node.js**: Version `20.x` or `22.x` ([nodejs.org](https://nodejs.org/))
+
+---
+
+### Step 1: Clone Repository
 ```bash
 git clone https://github.com/aryan25798/Testing_Agent.git
 cd Testing_Agent
@@ -16,44 +148,9 @@ cd Testing_Agent
 
 ---
 
-### 🔑 2. Where to Place Your API Keys (3 Easy Ways)
+### Step 2: Backend Setup (FastAPI)
 
-You can configure your **Google Gemini** or **OpenAI** API keys using any of the following methods:
-
-#### Method A: Direct in the Web UI (Recommended & Easiest)
-1. Start the application backend and frontend (see Step 3 & 4 below).
-2. Open your browser and navigate to **[http://localhost:4200/models](http://localhost:4200/models)** (or click **AI Model Settings** in the left sidebar).
-3. Paste your Gemini API key (`AQ...` or `AIza...`) or OpenAI API key (`sk-...`).
-4. Click **Verify & Save Key**.
-5. The system will automatically validate the credentials, dynamically discover all live models available for your key, and enable independent per-agent model assignment.
-
-#### Method B: In the `.env` Configuration File
-1. In the project root directory, copy `.env.example` to `.env`:
-   ```bash
-   cp .env.example .env
-   ```
-2. Open `.env` in any text editor and insert your key:
-   ```env
-   GEMINI_API_KEY="your_actual_gemini_api_key_here"
-   OPENAI_API_KEY="your_actual_openai_api_key_here"
-   ```
-3. When the backend starts up, it automatically loads these keys.
-
-#### Method C: In Terminal / System Environment Variables
-- **Windows (PowerShell)**:
-  ```powershell
-  $env:GEMINI_API_KEY="your_actual_gemini_api_key_here"
-  $env:OPENAI_API_KEY="your_actual_openai_api_key_here"
-  ```
-- **macOS / Linux**:
-  ```bash
-  export GEMINI_API_KEY="your_actual_gemini_api_key_here"
-  export OPENAI_API_KEY="your_actual_openai_api_key_here"
-  ```
-
----
-
-### 3. Setup & Start the Python Backend (FastAPI)
+Open a terminal in the root directory:
 
 1. **Create and activate a virtual environment**:
    - **Windows (PowerShell)**:
@@ -67,34 +164,34 @@ You can configure your **Google Gemini** or **OpenAI** API keys using any of the
      source .venv/bin/activate
      ```
 
-2. **Install dependencies**:
+2. **Install Python dependencies**:
    ```bash
    pip install -r requirements.txt
    ```
 
-3. **Install Playwright browsers** (for headless/headed test execution):
+3. **Install Playwright browser binaries**:
    ```bash
    playwright install chromium
    ```
 
-4. **Launch the FastAPI server**:
+4. **Initialize database & start the backend server**:
    ```bash
    python -m uvicorn src.main:app --host 127.0.0.1 --port 8000
    ```
-   *The backend is now live at `http://127.0.0.1:8000` (Swagger docs at `http://127.0.0.1:8000/docs`).*
+   *The FastAPI server will be live at `http://127.0.0.1:8000` (API documentation available at `http://127.0.0.1:8000/docs`).*
 
 ---
 
-### 4. Setup & Start the Angular Frontend
+### Step 3: Frontend Setup (Angular)
 
-Open a new terminal window:
+Open a **second terminal**:
 
 1. **Navigate to the frontend folder**:
    ```bash
    cd frontend
    ```
 
-2. **Install Node.js dependencies**:
+2. **Install frontend dependencies**:
    ```bash
    npm install
    ```
@@ -103,270 +200,153 @@ Open a new terminal window:
    ```bash
    npx ng serve --port 4200
    ```
-4. **Open your browser**:
-   Navigate to **[http://localhost:4200](http://localhost:4200)** to access your AI Testing Assistant Dashboard!
+
+4. **Access the application**:
+   Open **[http://localhost:4200](http://localhost:4200)** in your browser.
 
 ---
 
-## Phase 0: Environment Isolation & Setup Guide
+## 🔑 Configuring API Keys
 
-This project strictly requires an isolated Python virtual environment (`.venv`) for all development and execution tasks. Dependencies must never be installed directly into the global/system Python environment.
+You have **3 convenient ways** to configure your Google Gemini or OpenAI API keys:
 
----
-
-### 1. Prerequisites
-
-- **Python**: Version `3.11` or higher (verified with Python 3.14).
-- **Git**: Installed and available on your system path.
-- **Shell**: PowerShell (Windows) or Bash / Zsh (Linux / macOS).
-
-Verify your system Python and Git versions before starting:
-
-```powershell
-python --version
-git --version
-```
-
-If Python is not installed or version < 3.11:
-- **Windows**: Download the latest installer from [python.org](https://www.python.org/downloads/) or run `winget install Python.Python.3.12`. Ensure *"Add python.exe to PATH"* is checked.
-- **macOS**: Use Homebrew: `brew install python@3.12`.
-- **Linux**: Use your package manager (e.g. `sudo apt update && sudo apt install python3.12 python3.12-venv python3-pip`).
+### Method 1: Direct in Web Dashboard (Recommended & Easiest)
+1. Open the web app at **[http://localhost:4200/models](http://localhost:4200/models)** (or click **AI Model Settings** in the left sidebar).
+2. In the **Google Gemini** card, enter your key (`AQ...` or `AIza...`).
+3. In the **OpenAI** card, enter your key (`sk-...`).
+4. Click **Verify & Save Key**.
+5. The application will immediately discover all available models dynamically and configure them for each agent.
 
 ---
 
-### 2. Quick Setup (Automated)
+### Method 2: In `.env` Configuration File
+1. In the project root, copy `.env.example` to `.env`:
+   ```bash
+   # Windows PowerShell
+   Copy-Item .env.example .env
 
-Run the platform setup script for your operating system:
-
-#### Windows (PowerShell)
-```powershell
-.\setup.ps1
-```
-
-#### Linux / macOS / Git Bash
-```bash
-chmod +x setup.sh
-./setup.sh
-```
-
-The script will automatically:
-1. Verify Python >= 3.11 is present.
-2. Create the `.venv` virtual environment (if it does not exist).
-3. Upgrade `pip` inside `.venv`.
-4. Install all dependencies from `requirements-dev.txt`.
-5. Create `.env` from `.env.example` (if missing).
-6. Run `scripts/check_environment.py` to verify full isolation and configuration.
+   # macOS / Linux
+   cp .env.example .env
+   ```
+2. Open `.env` and enter your keys:
+   ```env
+   GEMINI_API_KEY="your_gemini_api_key_here"
+   OPENAI_API_KEY="your_openai_api_key_here"
+   ```
+3. Restart the FastAPI server. It will load the credentials automatically on boot.
 
 ---
 
-### 3. Manual Step-by-Step Setup
-
-If you prefer configuring the environment manually, follow these steps:
-
-#### Step 3.1: Navigate to the Project Directory
-```powershell
-cd testing-agent-platform
-```
-
-#### Step 3.2: Create the Virtual Environment
-Create a dedicated virtual environment named `.venv`:
-
-- **Windows**:
+### Method 3: In System Environment Variables
+- **Windows (PowerShell)**:
   ```powershell
-  python -m venv .venv
+  $env:GEMINI_API_KEY="your_gemini_api_key_here"
+  $env:OPENAI_API_KEY="your_openai_api_key_here"
   ```
 - **macOS / Linux**:
   ```bash
-  python3 -m venv .venv
+  export GEMINI_API_KEY="your_gemini_api_key_here"
+  export OPENAI_API_KEY="your_openai_api_key_here"
   ```
-
-#### Step 3.3: Activate the Virtual Environment
-Activate `.venv` before running any commands:
-
-- **Windows PowerShell**:
-  ```powershell
-  .\.venv\Scripts\Activate.ps1
-  ```
-  *(Note: If script execution is restricted in PowerShell, run `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser` once).*
-
-- **Windows Command Prompt (cmd)**:
-  ```cmd
-  .venv\Scripts\activate.bat
-  ```
-
-- **Linux / macOS**:
-  ```bash
-  source .venv/bin/activate
-  ```
-
-Verify that the active interpreter points to `.venv`:
-```powershell
-# Windows
-(Get-Command python).Source
-
-# Linux / macOS
-which python
-```
-
-#### Step 3.4: Upgrade pip
-```bash
-python -m pip install --upgrade pip
-```
-
-#### Step 3.5: Install Dependencies
-Always use `python -m pip` to ensure packages install into `.venv`:
-
-- **Production Dependencies**:
-  ```bash
-  python -m pip install -r requirements.txt
-  ```
-- **Development & Testing Dependencies**:
-  ```bash
-  python -m pip install -r requirements-dev.txt
-  ```
-
-#### Step 3.6: Configure Environment Variables
-Copy the template `.env.example` to `.env`:
-
-- **Windows PowerShell**:
-  ```powershell
-  Copy-Item .env.example .env
-  ```
-- **Linux / macOS**:
-  ```bash
-  cp .env.example .env
-  ```
-
-Update `.env` with your local settings and credentials.
-
-> [!WARNING]
-> Never commit `.env` or sensitive credentials to Git. `.env` and `.venv/` are explicitly excluded via `.gitignore`.
 
 ---
 
-### 4. Verification
+## 🔌 Enterprise Integrations
 
-Run the automated verification script to validate interpreter isolation, dependency resolution, `.env` loading, and directory structure:
+Navigate to **[http://localhost:4200/settings](http://localhost:4200/settings)** to connect external developer tools:
 
-```bash
-python scripts/check_environment.py
-```
+### Jira Software Cloud
+- **Host URL**: e.g. `https://your-domain.atlassian.net`
+- **Email**: Atlassian account email
+- **API Token**: Generated from [id.atlassian.com/manage-profile/security/api-tokens](https://id.atlassian.com/manage-profile/security/api-tokens)
+- **Features**: Live user story extraction, acceptance criteria parsing, and sprint issue synchronization.
 
-Expected output:
-```text
-============================================================
-Testing Agent Platform - Environment Verification
-============================================================
-Project Root: ...\testing-agent-platform
-
---- 1. Virtual Environment Check ---
-Interpreter: ...\testing-agent-platform\.venv\Scripts\python.exe
-Prefix:      ...\testing-agent-platform\.venv
-Base Prefix: C:\Program Files\Python314
-[PASS] Running inside dedicated project virtual environment (.venv).
-
---- 2. Python Version Check ---
-Python Version: 3.14.2
-[PASS] Python version 3.14.2 meets requirement (>=3.11).
-
---- 3. pip Tooling Check ---
-pip version: pip 26.3 from ...\.venv\Lib\site-packages\pip (python 3.14)
-[PASS] pip is accessible and functional inside virtual environment.
-
---- 4. Dependency Installation Check ---
-  - fastapi: 0.165.0 [INSTALLED]
-  - uvicorn: 0.54.0 [INSTALLED]
-  - pydantic: 2.14.4 [INSTALLED]
-  - streamlit: 1.67.0 [INSTALLED]
-  - python-dotenv: 1.2.4 [INSTALLED]
-  - httpx: 0.28.1 [INSTALLED]
-  - pytest: 9.2.0 [INSTALLED]
-[PASS] All required core packages are installed.
-
---- 5. Environment Variables (.env) Check ---
-  - ENVIRONMENT=development
-  - APP_HOST=127.0.0.1
-  - APP_PORT=8000
-[PASS] .env file loaded successfully and contains expected variables.
-
---- 6. Project Files & Directory Structure Check ---
-  - [FOUND] requirements.txt
-  - [FOUND] requirements-dev.txt
-  - [FOUND] .gitignore
-  - [FOUND] .env
-  - [FOUND] .env.example
-  - [FOUND] scripts/check_environment.py
-[PASS] All essential project files and directories exist.
-
---- 7. .gitignore Safety Check ---
-[PASS] .gitignore properly excludes .venv and .env.
-
-============================================================
-Verification Summary
-============================================================
-ALL CHECKS PASSED: Environment is clean, isolated, and ready for development.
-```
+### GitHub Repositories
+- **Personal Access Token (PAT)**: Generated with `repo` read/write permissions.
+- **Repository Full Name**: e.g. `organization/repository`
+- **Features**: Inspects application source code, maps existing Page Objects, and aligns generated Playwright selectors with real DOM elements.
 
 ---
 
-### 5. Running the Application
-
-The platform consists of a **FastAPI backend** and a modern **Angular frontend**:
-
-1. **Start the FastAPI Backend**:
-   ```powershell
-   cd testing-agent-platform
-   .\.venv\Scripts\Activate.ps1
-   python -m uvicorn src.main:app --host 127.0.0.1 --port 8000 --reload
-   ```
-   - API Docs: `http://127.0.0.1:8000/docs`
-   - Health Check: `http://127.0.0.1:8000/api/v1/health`
-   - Dashboard API: `http://127.0.0.1:8000/api/v1/dashboard/overview`
-
-2. **Start the Angular Frontend**:
-   ```powershell
-   cd testing-agent-platform\frontend
-   npm start
-   # Or: npx ng serve --port 4200 --host 127.0.0.1
-   ```
-   - Dashboard UI: `http://localhost:4200/`
-
-3. **Database & Data Persistence**:
-   - Location: `testing-agent-platform/testing_platform.db` (SQLite relational database)
-   - Stores all projects, requirements, scenarios, test cases, Playwright automation scripts, execution history, and custom agents.
-
----
-
-### 6. Project Directory Layout
+## 📁 Project Directory Structure
 
 ```text
-testing-agent-platform/
-├── frontend/                # Modern Angular 19 Standalone Frontend
+Testing_Agent/
+├── .env.example                     # Environment template
+├── .gitignore                       # Git ignore rules (secrets & builds excluded)
+├── README.md                        # Master documentation
+├── requirements.txt                 # Python production dependencies
+├── requirements-dev.txt             # Development & testing dependencies
+├── frontend/                        # Angular 19 Standalone Frontend
+│   ├── angular.json                 # Angular CLI configuration
+│   ├── package.json                 # Node dependencies
+│   ├── tailwind.config.js           # Tailwind CSS configuration & tokens
 │   ├── src/
 │   │   ├── app/
-│   │   │   ├── core/        # API services, models, and TypeScript interfaces
-│   │   │   ├── layout/      # Deep navy sidebar, sticky search header
-│   │   │   └── pages/       # Dashboard, Projects, Agents, Workflows, Cases, Reports, etc.
-│   │   ├── styles.css       # Tailwind CSS & custom design tokens
-│   │   └── index.html
-│   ├── tailwind.config.js   # Custom design palette & typography
-│   └── package.json
-├── src/                     # Python 3.11+ FastAPI Backend
-│   ├── agents/              # 6 specialized QA agents (Requirement, Scenario, Design, Automation, Execution, Reporting)
-│   ├── api/                 # REST API routers (dashboard, projects, models, workflows, custom-agents, etc.)
-│   ├── database/            # SQLAlchemy session and SQLite connection
-│   ├── integrations/        # Jira, GitHub, and file upload parsers
-│   ├── llm/                 # Model registry & dynamic provider router (Gemini & OpenAI)
-│   ├── models/              # Relational database models (entities.py)
-│   ├── workflows/           # LangGraph autonomous testing state machine
-│   └── main.py              # FastAPI application entrypoint
-├── testing_platform.db      # Persistent SQLite database
-├── artifacts/               # Test execution logs and generated scripts
-└── requirements.txt         # Backend Python dependencies
+│   │   │   ├── core/
+│   │   │   │   ├── models/types.ts  # TypeScript domain contracts
+│   │   │   │   └── services/        # ApiService, ThemeService, SidebarService
+│   │   │   ├── layout/
+│   │   │   │   ├── header/          # Sticky header, search, theme switcher
+│   │   │   │   └── sidebar/         # Responsive collapsible navigation
+│   │   │   ├── pages/               # Dashboard, Projects, Agents, Workflows,
+│   │   │   │                        # Test Cases, Automation, Executions, Reports,
+│   │   │   │                        # Model Settings, Settings
+│   │   │   └── shared/components/   # Lucide IconComponent & UI helpers
+│   │   ├── index.html
+│   │   ├── main.ts
+│   │   └── styles.css
+│   └── public/
+│       ├── favicon.ico
+│       └── qa_robot_assistant.jpg   # 3D QA mascot visual asset
+├── src/                             # Python Backend Application
+│   ├── main.py                      # FastAPI entry point & CORS configuration
+│   ├── agents/                      # 6 Core LangGraph Testing Agents
+│   ├── api/                         # REST Endpoints (Dashboard, Projects, Models, etc.)
+│   ├── config/                      # Settings & environment configuration
+│   ├── database/                    # SQLAlchemy database engine & sessions
+│   ├── integrations/                # Jira, GitHub, and file parsers
+│   ├── llm/                         # Dynamic provider abstraction & model routing
+│   ├── models/                      # SQLAlchemy database entities
+│   ├── schemas/                     # Pydantic v2 validation models
+│   └── workflows/                   # LangGraph workflow graphs & state management
+└── tests/                           # Unit, integration, and E2E test suites
+    ├── unit/
+    ├── integration/
+    └── e2e/
 ```
 
 ---
 
-### 7. Production Isolation (Docker)
+## 🧪 Running Automated Tests
 
-Local development relies on `.venv`. For staging and production environments, use containerized isolation (Docker) using multi-stage builds pinning the identical Python version (`>= 3.11`) and requirements to guarantee full reproducibility.
+Run the backend unit and integration test suites:
+
+```powershell
+# Run all unit tests
+pytest tests/unit/ -v
+
+# Run with test coverage report
+pytest --cov=src tests/unit/
+```
+
+Test Angular frontend compilation:
+
+```powershell
+cd frontend
+npm run build
+```
+
+---
+
+## 🛡 Security & Data Isolation
+
+- **Single-Tenant Workspace**: Runs entirely on your local machine (`127.0.0.1`).
+- **No Telemetry or Leaked Data**: Your test data, Jira stories, and application code are stored strictly in local SQLite storage.
+- **Git Safety**: Credentials, `.env` files, `.venv`, virtual environments, and SQLite database binaries are strictly ignored in `.gitignore` to prevent accidental credential leakage.
+
+---
+
+## 📄 License & Attribution
+
+Distributed under the **MIT License**. Created by **Aryan** for Cognizant QA Engineering & Autonomous Testing Operations.
