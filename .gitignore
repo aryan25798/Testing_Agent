@@ -1,0 +1,54 @@
+# Python Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+
+# Environment Variables and Credentials
+.env
+.env*.local
+*.key
+*.pem
+*.cert
+*.pfx
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Testing and Coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.hypothesis/
+.tox/
+.nox/
+
+# Logs and Local Databases
+*.log
+logs/
+*.sqlite
+*.sqlite3
+*.db
+
+# Build and Distribution
+dist/
+build/
+*.egg-info/
+*.egg
+
+# IDE and Editor Directories
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+desktop.ini
