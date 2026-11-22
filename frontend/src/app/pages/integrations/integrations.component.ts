@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
 import { IconComponent } from '../../shared/components/icon.component';
+import { PaginationComponent } from '../../shared/components/pagination.component';
 import {
   MCPServerStatus,
   MCPToolInfo,
@@ -15,7 +16,7 @@ import {
 @Component({
   selector: 'app-integrations',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent],
+  imports: [CommonModule, FormsModule, IconComponent, PaginationComponent],
   template: `
     <div class="space-y-8 max-w-7xl mx-auto pb-16">
       <!-- 1. Header Banner -->
@@ -575,7 +576,7 @@ import {
           <!-- Tools Grid (Responsive 1/2/3 cols with robust word-wrapping and boundary protection) -->
           <div *ngIf="filteredTools.length > 0" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 pt-2">
             <div
-              *ngFor="let t of filteredTools"
+              *ngFor="let t of paginatedTools"
               class="p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 hover:border-blue-500/40 transition-all flex flex-col justify-between space-y-3 min-w-0 w-full overflow-hidden shadow-2xs"
             >
               <div class="min-w-0">
@@ -610,6 +611,18 @@ import {
                 </div>
               </div>
             </div>
+          </div>
+
+          <!-- Tools Pagination -->
+          <div class="pt-2" *ngIf="filteredTools.length > toolsPageSize">
+            <app-pagination
+              [currentPage]="toolsPage"
+              [pageSize]="toolsPageSize"
+              [totalItems]="filteredTools.length"
+              [pageSizeOptions]="[9, 18, 36]"
+              (pageChange)="toolsPage = $event"
+              (pageSizeChange)="toolsPageSize = $event; toolsPage = 1"
+            ></app-pagination>
           </div>
         </div>
       </div>
@@ -709,7 +722,7 @@ import {
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-100 dark:divide-slate-800 font-mono">
-                <tr *ngFor="let log of logs" class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                <tr *ngFor="let log of paginatedLogs" class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
                   <td class="py-2.5 px-4 text-slate-500 whitespace-nowrap">{{ log.invoked_at | date:'HH:mm:ss' }}</td>
                   <td class="py-2.5 px-4 font-bold text-blue-600 dark:text-blue-400">{{ log.tool_name }}</td>
                   <td class="py-2.5 px-4 text-slate-600 dark:text-slate-300">{{ log.agent_id }}</td>
@@ -729,6 +742,18 @@ import {
                 </tr>
               </tbody>
             </table>
+          </div>
+
+          <!-- Logs Pagination -->
+          <div class="pt-2" *ngIf="logs.length > logsPageSize">
+            <app-pagination
+              [currentPage]="logsPage"
+              [pageSize]="logsPageSize"
+              [totalItems]="logs.length"
+              [pageSizeOptions]="[10, 20, 50]"
+              (pageChange)="logsPage = $event"
+              (pageSizeChange)="logsPageSize = $event; logsPage = 1"
+            ></app-pagination>
           </div>
         </div>
       </div>
@@ -948,6 +973,12 @@ export class IntegrationsComponent implements OnInit, OnDestroy {
   pendingApprovals: MCPApprovalRequest[] = [];
   logs: MCPInvocationLog[] = [];
 
+  // Pagination for Tools and Logs
+  toolsPage = 1;
+  toolsPageSize = 9;
+  logsPage = 1;
+  logsPageSize = 10;
+
   // Mappings
   selectedProjectId = '';
   activeMapping = {
@@ -1006,6 +1037,16 @@ export class IntegrationsComponent implements OnInit, OnDestroy {
     const s = this.getServer(this.toolFilter);
     if (!s) return [];
     return this.tools.filter((t) => t.server_id === s.server_name || t.tool_name.toLowerCase().includes(this.toolFilter));
+  }
+
+  get paginatedTools(): MCPToolInfo[] {
+    const start = (this.toolsPage - 1) * this.toolsPageSize;
+    return this.filteredTools.slice(start, start + this.toolsPageSize);
+  }
+
+  get paginatedLogs(): MCPInvocationLog[] {
+    const start = (this.logsPage - 1) * this.logsPageSize;
+    return this.logs.slice(start, start + this.logsPageSize);
   }
 
   refreshAll() {

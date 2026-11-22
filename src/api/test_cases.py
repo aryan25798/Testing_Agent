@@ -2,12 +2,21 @@
 Test Case Management API Endpoints.
 """
 
-from typing import List, Optional
+import math
+from typing import List, Optional, Union
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from src.database.session import get_db
 from src.models.entities import TestCase, Project
-from src.schemas.dtos import TestCaseCreate, TestCaseRead
+from src.schemas.dtos import (
+    TestCaseCreate,
+    TestCaseRead,
+    BulkDeleteRequest,
+    BulkDeleteResponse,
+    BulkApproveRequest,
+    BulkApproveResponse,
+    PaginatedTestCasesResponse,
+)
 
 router = APIRouter(prefix="/test-cases", tags=["Test Cases"])
 
@@ -44,32 +53,100 @@ def create_test_case(payload: TestCaseCreate, db: Session = Depends(get_db)):
     return tc
 
 
-@router.get("/project/{project_id}", response_model=List[TestCaseRead])
+@router.get("/project/{project_id}", response_model=Union[PaginatedTestCasesResponse, List[TestCaseRead]])
 def list_test_cases(
     project_id: str,
     priority: Optional[str] = Query(None),
     test_type: Optional[str] = Query(None),
     is_approved: Optional[bool] = Query(None),
     search: Optional[str] = Query(None),
+    page: Optional[int] = Query(None, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    sort_by: str = Query("created_at"),
+    sort_order: str = Query("asc"),
     db: Session = Depends(get_db),
 ):
     query = db.query(TestCase).filter(TestCase.project_id == project_id)
 
-    if priority:
-        query = query.filter(TestCase.priority == priority)
-    if test_type:
-        query = query.filter(TestCase.test_type == test_type)
+    if priority and priority.strip():
+        query = query.filter(TestCase.priority == priority.strip())
+    if test_type and test_type.strip():
+        query = query.filter(TestCase.test_type == test_type.strip())
     if is_approved is not None:
         query = query.filter(TestCase.is_approved == is_approved)
-    if search:
-        search_filter = f"%{search}%"
+    if search and search.strip():
+        search_filter = f"%{search.strip()}%"
         query = query.filter(
             (TestCase.title.ilike(search_filter))
             | (TestCase.test_case_key.ilike(search_filter))
             | (TestCase.objective.ilike(search_filter))
         )
 
-    return query.order_by(TestCase.created_at.asc()).all()
+    # Safe sorting
+    sort_attr = getattr(TestCase, sort_by, None)
+    if sort_attr is None:
+        sort_attr = TestCase.created_at
+    if sort_order.lower() == "desc":
+        query = query.order_by(sort_attr.desc())
+    else:
+        query = query.order_by(sort_attr.asc())
+
+    if page is not None:
+        total = query.count()
+        offset = (page - 1) * page_size
+        items = query.offset(offset).limit(page_size).all()
+        total_pages = math.ceil(total / page_size) if total > 0 else 1
+        return PaginatedTestCasesResponse(
+            items=items,
+            total=total,
+            page=page,
+            page_size=page_size,
+            total_pages=total_pages,
+        )
+
+    return query.all()
+
+
+@router.post("/bulk-delete", response_model=BulkDeleteResponse, status_code=status.HTTP_200_OK)
+def bulk_delete_test_cases(payload: BulkDeleteRequest, db: Session = Depends(get_db)):
+    deleted_ids = []
+    failed_ids = []
+
+    for case_id in payload.ids:
+        tc = db.query(TestCase).filter(TestCase.id == case_id).first()
+        if not tc:
+            failed_ids.append(case_id)
+            continue
+        db.delete(tc)
+        deleted_ids.append(case_id)
+
+    db.commit()
+    return BulkDeleteResponse(
+        deleted_count=len(deleted_ids),
+        deleted_ids=deleted_ids,
+        failed_ids=failed_ids,
+        message=f"Successfully deleted {len(deleted_ids)} test case(s).",
+    )
+
+
+@router.post("/bulk-approve", response_model=BulkApproveResponse, status_code=status.HTTP_200_OK)
+def bulk_approve_test_cases(payload: BulkApproveRequest, db: Session = Depends(get_db)):
+    approved_ids = []
+
+    for case_id in payload.ids:
+        tc = db.query(TestCase).filter(TestCase.id == case_id).first()
+        if tc and not tc.is_approved:
+            tc.is_approved = True
+            tc.status = "Approved"
+            approved_ids.append(case_id)
+
+    db.commit()
+    return BulkApproveResponse(
+        approved_count=len(approved_ids),
+        approved_ids=approved_ids,
+        message=f"Successfully approved {len(approved_ids)} test case(s).",
+    )
+
 
 
 @router.post("/{case_id}/approve", response_model=TestCaseRead)

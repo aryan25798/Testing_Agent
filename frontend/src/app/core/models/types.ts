@@ -123,6 +123,7 @@ export interface TestExecution {
   blocked_tests: number;
   execution_duration_seconds: number;
   status: string;
+  raw_log_output?: string;
   created_at?: string;
   results?: TestExecutionResult[];
 }
@@ -269,3 +270,25 @@ export interface MCPInvocationLog {
   error_message?: string;
   invoked_at: string;
 }
+
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
+export interface BulkDeleteResponse {
+  deleted_count: number;
+  deleted_ids: string[];
+  failed_ids?: string[];
+  message: string;
+}
+
+export interface BulkApproveResponse {
+  approved_count: number;
+  approved_ids: string[];
+  message: string;
+}
+

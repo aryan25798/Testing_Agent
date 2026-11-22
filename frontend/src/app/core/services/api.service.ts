@@ -17,6 +17,9 @@ import {
   ProjectMCPMapping,
   MCPApprovalRequest,
   MCPInvocationLog,
+  PaginatedResponse,
+  BulkDeleteResponse,
+  BulkApproveResponse,
 } from '../models/types';
 
 @Injectable({
@@ -34,6 +37,28 @@ export class ApiService {
   // Projects
   getProjects(): Observable<Project[]> {
     return this.http.get<Project[]>(`${this.baseUrl}/projects`);
+  }
+
+  getProjectsPaginated(options?: {
+    page?: number;
+    page_size?: number;
+    search?: string;
+    framework?: string;
+    sort_by?: string;
+    sort_order?: string;
+  }): Observable<PaginatedResponse<Project>> {
+    let params = new HttpParams();
+    if (options?.page) params = params.set('page', options.page.toString());
+    if (options?.page_size) params = params.set('page_size', options.page_size.toString());
+    if (options?.search) params = params.set('search', options.search);
+    if (options?.framework) params = params.set('framework', options.framework);
+    if (options?.sort_by) params = params.set('sort_by', options.sort_by);
+    if (options?.sort_order) params = params.set('sort_order', options.sort_order);
+    return this.http.get<PaginatedResponse<Project>>(`${this.baseUrl}/projects`, { params });
+  }
+
+  bulkDeleteProjects(ids: string[]): Observable<BulkDeleteResponse> {
+    return this.http.post<BulkDeleteResponse>(`${this.baseUrl}/projects/bulk-delete`, { ids });
   }
 
   getProject(id: string): Observable<Project> {
@@ -86,6 +111,39 @@ export class ApiService {
     return this.http.delete<void>(`${this.baseUrl}/test-cases/${caseId}`);
   }
 
+  getTestCasesPaginated(
+    projectId: string,
+    filters?: {
+      priority?: string;
+      test_type?: string;
+      is_approved?: boolean;
+      search?: string;
+      page?: number;
+      page_size?: number;
+      sort_by?: string;
+      sort_order?: string;
+    }
+  ): Observable<PaginatedResponse<TestCase>> {
+    let params = new HttpParams();
+    if (filters?.priority) params = params.set('priority', filters.priority);
+    if (filters?.test_type) params = params.set('test_type', filters.test_type);
+    if (filters?.is_approved !== undefined) params = params.set('is_approved', filters.is_approved);
+    if (filters?.search) params = params.set('search', filters.search);
+    if (filters?.page) params = params.set('page', filters.page.toString());
+    if (filters?.page_size) params = params.set('page_size', filters.page_size.toString());
+    if (filters?.sort_by) params = params.set('sort_by', filters.sort_by);
+    if (filters?.sort_order) params = params.set('sort_order', filters.sort_order);
+    return this.http.get<PaginatedResponse<TestCase>>(`${this.baseUrl}/test-cases/project/${projectId}`, { params });
+  }
+
+  bulkDeleteTestCases(ids: string[]): Observable<BulkDeleteResponse> {
+    return this.http.post<BulkDeleteResponse>(`${this.baseUrl}/test-cases/bulk-delete`, { ids });
+  }
+
+  bulkApproveTestCases(ids: string[]): Observable<BulkApproveResponse> {
+    return this.http.post<BulkApproveResponse>(`${this.baseUrl}/test-cases/bulk-approve`, { ids });
+  }
+
   // Automation Scripts
   getAutomationScripts(projectId: string): Observable<AutomationScript[]> {
     return this.http.get<AutomationScript[]>(`${this.baseUrl}/automation/project/${projectId}`);
@@ -98,6 +156,29 @@ export class ApiService {
   // Executions
   getExecutions(projectId: string): Observable<TestExecution[]> {
     return this.http.get<TestExecution[]>(`${this.baseUrl}/executions/project/${projectId}`);
+  }
+
+  getExecutionsPaginated(
+    projectId: string,
+    options?: {
+      page?: number;
+      page_size?: number;
+      search?: string;
+      runner_type?: string;
+      status_filter?: string;
+    }
+  ): Observable<PaginatedResponse<TestExecution>> {
+    let params = new HttpParams();
+    if (options?.page) params = params.set('page', options.page.toString());
+    if (options?.page_size) params = params.set('page_size', options.page_size.toString());
+    if (options?.search) params = params.set('search', options.search);
+    if (options?.runner_type) params = params.set('runner_type', options.runner_type);
+    if (options?.status_filter) params = params.set('status_filter', options.status_filter);
+    return this.http.get<PaginatedResponse<TestExecution>>(`${this.baseUrl}/executions/project/${projectId}`, { params });
+  }
+
+  bulkDeleteExecutions(ids: string[]): Observable<BulkDeleteResponse> {
+    return this.http.post<BulkDeleteResponse>(`${this.baseUrl}/executions/bulk-delete`, { ids });
   }
 
   getExecution(executionId: string): Observable<TestExecution> {

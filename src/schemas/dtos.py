@@ -261,3 +261,49 @@ class WorkflowStartRequest(BaseModel):
     jira_issue_keys: Optional[List[str]] = None
     framework: str = "playwright"
     browser: str = "chromium"  # chromium | firefox | webkit | chrome
+
+
+class BulkDeleteRequest(BaseModel):
+    ids: List[str] = Field(..., min_length=1)
+
+
+class BulkDeleteResponse(BaseModel):
+    deleted_count: int
+    deleted_ids: List[str]
+    failed_ids: List[str] = Field(default_factory=list)
+    message: str
+
+
+class BulkApproveRequest(BaseModel):
+    ids: List[str] = Field(..., min_length=1)
+
+
+class BulkApproveResponse(BaseModel):
+    approved_count: int
+    approved_ids: List[str]
+    message: str
+
+
+class PaginatedProjectsResponse(BaseModel):
+    items: List[ProjectRead]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+class PaginatedTestCasesResponse(BaseModel):
+    items: List[TestCaseRead]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+class PaginatedExecutionsResponse(BaseModel):
+    items: List[TestExecutionRead]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+

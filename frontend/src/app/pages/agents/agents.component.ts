@@ -5,11 +5,12 @@ import { ActivatedRoute } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
 import { CustomAgent } from '../../core/models/types';
 import { IconComponent } from '../../shared/components/icon.component';
+import { ConfirmationModalComponent } from '../../shared/components/confirmation-modal.component';
 
 @Component({
   selector: 'app-agents',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent],
+  imports: [CommonModule, FormsModule, IconComponent, ConfirmationModalComponent],
   template: `
     <div class="space-y-8 max-w-7xl mx-auto pb-12">
       <!-- Header -->
@@ -91,8 +92,8 @@ import { IconComponent } from '../../shared/components/icon.component';
                     {{ ca.category }}
                   </span>
                   <button
-                    (click)="deleteCustomAgent(ca.id)"
-                    class="text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 p-1"
+                    (click)="promptDeleteCustomAgent(ca)"
+                    class="text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 p-1 rounded-lg transition-colors cursor-pointer"
                     title="Delete Custom Agent"
                   >
                     <app-icon name="trash-2" size="14"></app-icon>
@@ -228,6 +229,20 @@ import { IconComponent } from '../../shared/components/icon.component';
           </form>
         </div>
       </div>
+
+      <!-- Confirmation Modal for Deleting Custom Agent -->
+      <app-confirmation-modal
+        [isOpen]="showDeleteModal"
+        [title]="'Delete Custom Agent?'"
+        [message]="'Are you sure you want to delete custom agent ' + (pendingAgent?.name || '') + '?'"
+        [warningText]="'This agent will no longer be available in testing workflows or custom orchestrations.'"
+        [itemsList]="pendingAgent ? [pendingAgent.name] : []"
+        [confirmText]="'Confirm Delete'"
+        [isDestructive]="true"
+        [isLoading]="isDeleting"
+        (confirm)="executeDeleteCustomAgent()"
+        (cancel)="showDeleteModal = false"
+      ></app-confirmation-modal>
     </div>
   `,
 })
@@ -236,6 +251,9 @@ export class AgentsComponent implements OnInit {
   private route = inject(ActivatedRoute);
 
   showCreateModal = false;
+  showDeleteModal = false;
+  isDeleting = false;
+  pendingAgent: CustomAgent | null = null;
   agentConfigs: Record<string, any> = {};
   customAgents: CustomAgent[] = [];
 
@@ -334,11 +352,25 @@ export class AgentsComponent implements OnInit {
     });
   }
 
-  deleteCustomAgent(id: string) {
-    if (confirm('Delete this custom agent?')) {
-      this.api.deleteCustomAgent(id).subscribe({
-        next: () => this.loadData(),
-      });
-    }
+  promptDeleteCustomAgent(ca: CustomAgent) {
+    this.pendingAgent = ca;
+    this.showDeleteModal = true;
+  }
+
+  executeDeleteCustomAgent() {
+    if (!this.pendingAgent) return;
+    this.isDeleting = true;
+    this.api.deleteCustomAgent(this.pendingAgent.id).subscribe({
+      next: () => {
+        this.isDeleting = false;
+        this.showDeleteModal = false;
+        this.pendingAgent = null;
+        this.loadData();
+      },
+      error: () => {
+        this.isDeleting = false;
+        this.showDeleteModal = false;
+      },
+    });
   }
 }

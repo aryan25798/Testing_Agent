@@ -2,8 +2,9 @@
 Project Management API Endpoints.
 """
 
-from typing import List, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, status
+import math
+from typing import List, Dict, Any, Optional, Union
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from src.database.session import get_db
 from src.models.entities import (
@@ -14,8 +15,17 @@ from src.models.entities import (
     AutomationScript,
     TestExecution,
     TestExecutionResult,
+    ApprovalRequest,
+    AgentExecution,
 )
-from src.schemas.dtos import ProjectCreate, ProjectRead
+from src.schemas.dtos import (
+    ProjectCreate,
+    ProjectRead,
+    BulkDeleteRequest,
+    BulkDeleteResponse,
+    PaginatedProjectsResponse,
+)
+from src.core.workflow_runner import workflow_runner
 
 router = APIRouter(prefix="/projects", tags=["Projects"])
 
@@ -37,9 +47,97 @@ def create_project(payload: ProjectCreate, db: Session = Depends(get_db)):
     return project
 
 
-@router.get("", response_model=List[ProjectRead])
-def list_projects(db: Session = Depends(get_db)):
-    return db.query(Project).order_by(Project.created_at.desc()).all()
+@router.get("", response_model=Union[PaginatedProjectsResponse, List[ProjectRead]])
+def list_projects(
+    page: Optional[int] = Query(None, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
+    search: Optional[str] = Query(None),
+    framework: Optional[str] = Query(None),
+    sort_by: str = Query("created_at"),
+    sort_order: str = Query("desc"),
+    db: Session = Depends(get_db),
+):
+    query = db.query(Project)
+
+    if search and search.strip():
+        s = f"%{search.strip()}%"
+        query = query.filter(
+            (Project.name.ilike(s)) | (Project.description.ilike(s)) | (Project.base_url.ilike(s))
+        )
+
+    if framework and framework.strip():
+        query = query.filter(Project.framework == framework.strip().lower())
+
+    # Safe sorting
+    sort_attr = getattr(Project, sort_by, None)
+    if sort_attr is None:
+        sort_attr = Project.created_at
+    if sort_order.lower() == "asc":
+        query = query.order_by(sort_attr.asc())
+    else:
+        query = query.order_by(sort_attr.desc())
+
+    if page is not None:
+        total = query.count()
+        offset = (page - 1) * page_size
+        items = query.offset(offset).limit(page_size).all()
+        total_pages = math.ceil(total / page_size) if total > 0 else 1
+        return PaginatedProjectsResponse(
+            items=items,
+            total=total,
+            page=page,
+            page_size=page_size,
+            total_pages=total_pages,
+        )
+
+    return query.all()
+
+
+@router.post("/bulk-delete", response_model=BulkDeleteResponse, status_code=status.HTTP_200_OK)
+def bulk_delete_projects(payload: BulkDeleteRequest, db: Session = Depends(get_db)):
+    active_workflows = workflow_runner.list_active()
+    active_proj_ids = {w["project_id"] for w in active_workflows}
+
+    deleted_ids = []
+    failed_ids = []
+
+    for proj_id in payload.ids:
+        if proj_id in active_proj_ids:
+            failed_ids.append(proj_id)
+            continue
+
+        project = db.query(Project).filter(Project.id == proj_id).first()
+        if not project:
+            failed_ids.append(proj_id)
+            continue
+
+        # Cascading transactional cleanup
+        exec_ids = [e.id for e in db.query(TestExecution).filter(TestExecution.project_id == proj_id).all()]
+        if exec_ids:
+            db.query(TestExecutionResult).filter(TestExecutionResult.execution_id.in_(exec_ids)).delete(synchronize_session=False)
+        db.query(TestExecution).filter(TestExecution.project_id == proj_id).delete(synchronize_session=False)
+        db.query(AutomationScript).filter(AutomationScript.project_id == proj_id).delete(synchronize_session=False)
+        db.query(TestCase).filter(TestCase.project_id == proj_id).delete(synchronize_session=False)
+        db.query(TestScenario).filter(TestScenario.project_id == proj_id).delete(synchronize_session=False)
+        db.query(Requirement).filter(Requirement.project_id == proj_id).delete(synchronize_session=False)
+        db.query(ApprovalRequest).filter(ApprovalRequest.project_id == proj_id).delete(synchronize_session=False)
+        db.query(AgentExecution).filter(AgentExecution.project_id == proj_id).delete(synchronize_session=False)
+
+        db.delete(project)
+        deleted_ids.append(proj_id)
+
+    db.commit()
+
+    msg = f"Successfully deleted {len(deleted_ids)} project(s)."
+    if failed_ids:
+        msg += f" {len(failed_ids)} project(s) could not be deleted (not found or active workflows running)."
+
+    return BulkDeleteResponse(
+        deleted_count=len(deleted_ids),
+        deleted_ids=deleted_ids,
+        failed_ids=failed_ids,
+        message=msg,
+    )
 
 
 @router.get("/{project_id}", response_model=ProjectRead)
@@ -73,6 +171,15 @@ def delete_project(project_id: str, db: Session = Depends(get_db)):
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
+    # Safety check: prevent deleting project if an automated workflow is actively running
+    active_workflows = workflow_runner.list_active()
+    active_for_project = [w for w in active_workflows if w["project_id"] == project_id]
+    if active_for_project:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Cannot delete project '{project.name}' because an automated testing workflow is actively running. Please cancel the workflow first or wait for completion.",
+        )
+
     # Cascading cleanup
     exec_ids = [e.id for e in db.query(TestExecution).filter(TestExecution.project_id == project_id).all()]
     if exec_ids:
@@ -82,14 +189,13 @@ def delete_project(project_id: str, db: Session = Depends(get_db)):
     db.query(TestCase).filter(TestCase.project_id == project_id).delete(synchronize_session=False)
     db.query(TestScenario).filter(TestScenario.project_id == project_id).delete(synchronize_session=False)
     db.query(Requirement).filter(Requirement.project_id == project_id).delete(synchronize_session=False)
-    
-    from src.models.entities import ApprovalRequest, AgentExecution
     db.query(ApprovalRequest).filter(ApprovalRequest.project_id == project_id).delete(synchronize_session=False)
     db.query(AgentExecution).filter(AgentExecution.project_id == project_id).delete(synchronize_session=False)
 
     db.delete(project)
     db.commit()
     return None
+
 
 
 @router.get("/{project_id}/dashboard", response_model=Dict[str, Any])
