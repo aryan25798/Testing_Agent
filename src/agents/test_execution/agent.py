@@ -6,16 +6,20 @@ Captures live logs, duration, screenshots, and classifies failure root causes:
 """
 
 import time
+import os
 import subprocess
 import tempfile
 import sys
 from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 from pydantic import BaseModel, Field
 from src.agents.base.base_agent import BaseAgent
 from src.database.session import SessionLocal
 from src.models.entities import TestExecution, TestExecutionResult
+from src.config.settings import settings
 from src.core.logging import get_logger
+from src.core.security.sanitizer import prompt_sanitizer
+from src.core.security.audit_logger import audit_logger
 
 logger = get_logger("test_execution_agent")
 
@@ -272,26 +276,76 @@ print("Execution verification completed.")
 """
             tmp.write(harness_code)
 
+        # Construct sanitized execution environment (Zero host secrets passed to test subprocess)
+        safe_env_keys = [
+            "PATH",
+            "PATHEXT",
+            "SYSTEMROOT",
+            "SYSTEMDRIVE",
+            "TEMP",
+            "TMP",
+            "USERPROFILE",
+            "LOCALAPPDATA",
+            "APPDATA",
+            "HOMEDRIVE",
+            "HOMEPATH",
+            "LANG",
+            "LC_ALL",
+            "PYTHONIOENCODING",
+            "PLAYWRIGHT_BROWSERS_PATH",
+        ]
+        isolated_env = {k: os.environ[k] for k in safe_env_keys if k in os.environ}
+
+        # Purge any leaked secret patterns from the environment dictionary
+        for k in list(isolated_env.keys()):
+            if any(term in k.upper() for term in ["KEY", "TOKEN", "SECRET", "PASSWORD", "DATABASE", "GEMINI", "OPENAI", "GITHUB", "JIRA"]):
+                del isolated_env[k]
+
+        timeout_sec = getattr(settings, "TEST_EXECUTION_TIMEOUT_SECONDS", 30) or 30
+
         try:
-            # Execute with current virtual environment python
+            # Execute with current virtual environment python and sanitized environment
             cmd = [sys.executable, tmp_path]
-            process = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            process = subprocess.run(cmd, env=isolated_env, capture_output=True, text=True, timeout=timeout_sec)
+            
+            clean_stdout = prompt_sanitizer.redact_secrets(process.stdout)
+            clean_stderr = prompt_sanitizer.redact_secrets(process.stderr)
+
+            audit_logger.log_event(
+                action="SUBPROCESS_TEST_EXECUTION",
+                status="SUCCESS" if process.returncode == 0 else "TEST_FAILED",
+                details={"exit_code": process.returncode, "timeout_seconds": timeout_sec},
+            )
+
             return {
                 "exit_code": process.returncode,
-                "stdout": process.stdout,
-                "stderr": process.stderr,
+                "stdout": clean_stdout,
+                "stderr": clean_stderr,
             }
         except subprocess.TimeoutExpired:
+            audit_logger.log_event(
+                action="SUBPROCESS_TEST_TIMEOUT",
+                status="TIMEOUT",
+                details={"timeout_seconds": timeout_sec},
+                severity="WARNING",
+            )
             return {
                 "exit_code": 1,
                 "stdout": "",
-                "stderr": "Execution timed out after 30 seconds",
+                "stderr": f"Execution timed out after {timeout_sec} seconds",
             }
         except Exception as e:
+            err_msg = prompt_sanitizer.redact_secrets(str(e))
+            audit_logger.log_event(
+                action="SUBPROCESS_TEST_ERROR",
+                status="ERROR",
+                details={"error": err_msg},
+                severity="ERROR",
+            )
             return {
                 "exit_code": 1,
                 "stdout": "",
-                "stderr": str(e),
+                "stderr": err_msg,
             }
         finally:
             try:

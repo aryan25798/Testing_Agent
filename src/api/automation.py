@@ -42,9 +42,11 @@ def download_automation_zip(project_id: str, db: Session = Depends(get_db)):
             zip_file.writestr(clean_path, s.code_content)
 
     zip_buffer.seek(0)
-    filename = f"{project.name.replace(' ', '_')}_automation_suite.zip"
+    from src.core.security.sanitizer import prompt_sanitizer
+    safe_name = prompt_sanitizer.sanitize_filename(project.name)
+    filename = f"{safe_name}_automation_suite.zip"
     return Response(
         content=zip_buffer.getvalue(),
         media_type="application/zip",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
     )

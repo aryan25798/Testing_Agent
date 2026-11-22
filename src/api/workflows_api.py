@@ -80,13 +80,15 @@ def get_project_report(project_id: str):
 def download_pdf_report(project_id: str):
     """Downloads formatted PDF report."""
     try:
+        from src.core.security.sanitizer import prompt_sanitizer
         report = reporting_agent.generate_consolidated_report(project_id=project_id)
         pdf_bytes = reporting_agent.export_pdf(report)
-        filename = f"{report.project_name.replace(' ', '_')}_QA_Report.pdf"
+        safe_name = prompt_sanitizer.sanitize_filename(report.project_name)
+        filename = f"{safe_name}_QA_Report.pdf"
         return Response(
             content=pdf_bytes,
             media_type="application/pdf",
-            headers={"Content-Disposition": f"attachment; filename={filename}"}
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -96,13 +98,15 @@ def download_pdf_report(project_id: str):
 def download_csv_report(project_id: str):
     """Downloads report metrics as CSV."""
     try:
+        from src.core.security.sanitizer import prompt_sanitizer
         report = reporting_agent.generate_consolidated_report(project_id=project_id)
         csv_text = reporting_agent.export_csv(report)
-        filename = f"{report.project_name.replace(' ', '_')}_Metrics.csv"
+        safe_name = prompt_sanitizer.sanitize_filename(report.project_name)
+        filename = f"{safe_name}_Metrics.csv"
         return Response(
             content=csv_text,
             media_type="text/csv",
-            headers={"Content-Disposition": f"attachment; filename={filename}"}
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

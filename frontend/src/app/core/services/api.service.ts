@@ -115,6 +115,14 @@ export class ApiService {
     return this.http.post<any>(`${this.baseUrl}/models/credentials`, { provider, api_key: apiKey });
   }
 
+  getCredentialsStatus(): Observable<Record<string, { provider: string; is_configured: boolean; masked?: string }>> {
+    return this.http.get<Record<string, { provider: string; is_configured: boolean; masked?: string }>>(`${this.baseUrl}/models/credentials/status`);
+  }
+
+  deleteCredentials(provider: string): Observable<any> {
+    return this.http.delete<any>(`${this.baseUrl}/models/credentials/${provider}`);
+  }
+
   getAgentConfigurations(): Observable<Record<string, any>> {
     return this.http.get<Record<string, any>>(`${this.baseUrl}/agents/configuration`);
   }

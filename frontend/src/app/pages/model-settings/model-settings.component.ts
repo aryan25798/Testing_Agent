@@ -46,12 +46,20 @@ import { IconComponent } from '../../shared/components/icon.component';
                 </div>
               </div>
 
-              <span
-                class="px-2.5 py-0.5 rounded-full text-[10px] font-bold"
-                [ngClass]="providerStatus['gemini'] ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'"
-              >
-                {{ providerStatus['gemini'] ? 'Connected' : 'Not Configured' }}
-              </span>
+              <div class="flex items-center gap-2">
+                <span
+                  *ngIf="credentialStatuses['gemini']?.masked"
+                  class="font-mono text-[10px] text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700"
+                >
+                  {{ credentialStatuses['gemini']?.masked }}
+                </span>
+                <span
+                  class="px-2.5 py-0.5 rounded-full text-[10px] font-bold"
+                  [ngClass]="providerStatus['gemini'] ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'"
+                >
+                  {{ providerStatus['gemini'] ? 'Connected' : 'Not Configured' }}
+                </span>
+              </div>
             </div>
 
             <div class="space-y-1.5 pt-2">
@@ -60,7 +68,7 @@ import { IconComponent } from '../../shared/components/icon.component';
                 <input
                   [type]="showGeminiKey ? 'text' : 'password'"
                   [(ngModel)]="geminiKey"
-                  placeholder="AQ... or AIza..."
+                  placeholder="Paste new key to update..."
                   class="w-full pl-3.5 pr-10 py-2.5 text-xs font-mono rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:border-blue-500 outline-none"
                 />
                 <button
@@ -78,13 +86,23 @@ import { IconComponent } from '../../shared/components/icon.component';
             <span class="text-xs text-slate-500 dark:text-slate-400">
               {{ getModelsForProvider('gemini').length }} Gemini models ready
             </span>
-            <button
-              (click)="saveCredentials('gemini', geminiKey)"
-              [disabled]="!geminiKey"
-              class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-colors shadow-sm disabled:opacity-50"
-            >
-              Verify & Save Key
-            </button>
+            <div class="flex items-center gap-2">
+              <button
+                *ngIf="credentialStatuses['gemini']?.is_configured"
+                (click)="deleteCredentials('gemini')"
+                type="button"
+                class="px-3 py-2 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 font-bold rounded-xl text-xs transition-colors border border-rose-200 dark:border-rose-900/60"
+              >
+                Revoke Key
+              </button>
+              <button
+                (click)="saveCredentials('gemini', geminiKey)"
+                [disabled]="!geminiKey"
+                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-colors shadow-sm disabled:opacity-50"
+              >
+                {{ credentialStatuses['gemini']?.is_configured ? 'Update Key' : 'Verify & Save Key' }}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -102,12 +120,20 @@ import { IconComponent } from '../../shared/components/icon.component';
                 </div>
               </div>
 
-              <span
-                class="px-2.5 py-0.5 rounded-full text-[10px] font-bold"
-                [ngClass]="providerStatus['openai'] ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'"
-              >
-                {{ providerStatus['openai'] ? 'Connected' : 'Not Configured' }}
-              </span>
+              <div class="flex items-center gap-2">
+                <span
+                  *ngIf="credentialStatuses['openai']?.masked"
+                  class="font-mono text-[10px] text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700"
+                >
+                  {{ credentialStatuses['openai']?.masked }}
+                </span>
+                <span
+                  class="px-2.5 py-0.5 rounded-full text-[10px] font-bold"
+                  [ngClass]="providerStatus['openai'] ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'"
+                >
+                  {{ providerStatus['openai'] ? 'Connected' : 'Not Configured' }}
+                </span>
+              </div>
             </div>
 
             <div class="space-y-1.5 pt-2">
@@ -116,7 +142,7 @@ import { IconComponent } from '../../shared/components/icon.component';
                 <input
                   [type]="showOpenaiKey ? 'text' : 'password'"
                   [(ngModel)]="openaiKey"
-                  placeholder="sk-..."
+                  placeholder="Paste new key to update..."
                   class="w-full pl-3.5 pr-10 py-2.5 text-xs font-mono rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:border-blue-500 outline-none"
                 />
                 <button
@@ -134,13 +160,23 @@ import { IconComponent } from '../../shared/components/icon.component';
             <span class="text-xs text-slate-500 dark:text-slate-400">
               {{ getModelsForProvider('openai').length }} OpenAI models ready
             </span>
-            <button
-              (click)="saveCredentials('openai', openaiKey)"
-              [disabled]="!openaiKey"
-              class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-colors shadow-sm disabled:opacity-50"
-            >
-              Verify & Save Key
-            </button>
+            <div class="flex items-center gap-2">
+              <button
+                *ngIf="credentialStatuses['openai']?.is_configured"
+                (click)="deleteCredentials('openai')"
+                type="button"
+                class="px-3 py-2 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 font-bold rounded-xl text-xs transition-colors border border-rose-200 dark:border-rose-900/60"
+              >
+                Revoke Key
+              </button>
+              <button
+                (click)="saveCredentials('openai', openaiKey)"
+                [disabled]="!openaiKey"
+                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-colors shadow-sm disabled:opacity-50"
+              >
+                {{ credentialStatuses['openai']?.is_configured ? 'Update Key' : 'Verify & Save Key' }}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -303,6 +339,7 @@ export class ModelSettingsComponent implements OnInit {
   isRefreshing = false;
 
   providerStatus: Record<string, boolean> = {};
+  credentialStatuses: Record<string, { provider?: string; is_configured?: boolean; masked?: string } | undefined> = {};
   availableModels: ModelInfo[] = [];
   savedState: Record<string, boolean> = {};
 
@@ -368,6 +405,9 @@ export class ModelSettingsComponent implements OnInit {
     this.api.testProviders().subscribe({
       next: (res) => (this.providerStatus = res),
     });
+    this.api.getCredentialsStatus().subscribe({
+      next: (res) => (this.credentialStatuses = res),
+    });
     this.api.getModels().subscribe({
       next: (res) => {
         this.availableModels = res;
@@ -399,12 +439,31 @@ export class ModelSettingsComponent implements OnInit {
   }
 
   saveCredentials(provider: string, key: string) {
-    this.api.setCredentials(provider, key).subscribe({
+    if (!key || key.trim().length < 8) {
+      alert('Please enter a valid API key.');
+      return;
+    }
+    this.api.setCredentials(provider, key.trim()).subscribe({
       next: (res) => {
-        alert(`${provider.toUpperCase()} credentials validated successfully! Discovered ${res.available_models_count} live models.`);
+        alert(`${provider.toUpperCase()} credentials encrypted & saved! Discovered ${res.available_models_count} live models.`);
+        if (provider === 'gemini') this.geminiKey = '';
+        if (provider === 'openai') this.openaiKey = '';
         this.loadData();
       },
       error: (err) => alert(`Validation failed: ${err.error?.detail || err.message}`),
+    });
+  }
+
+  deleteCredentials(provider: string) {
+    if (!confirm(`Are you sure you want to remove the saved ${provider.toUpperCase()} API key from the encrypted vault?`)) {
+      return;
+    }
+    this.api.deleteCredentials(provider).subscribe({
+      next: () => {
+        alert(`${provider.toUpperCase()} credentials removed from encrypted vault.`);
+        this.loadData();
+      },
+      error: (err) => alert(`Failed to revoke key: ${err.error?.detail || err.message}`),
     });
   }
 

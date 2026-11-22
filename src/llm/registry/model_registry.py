@@ -27,6 +27,14 @@ class ModelRegistry:
             self.openai_provider.set_api_key(openai_api_key)
         return self.refresh_models()
 
+    def clear_credentials(self, provider: str):
+        """Clears in-memory credentials for a provider and refreshes."""
+        if provider.lower() == "gemini":
+            self.gemini_provider.set_api_key("")
+        elif provider.lower() == "openai":
+            self.openai_provider.set_api_key("")
+        return self.refresh_models()
+
     def refresh_models(self) -> List[ModelCapability]:
         """Discovers models from all configured providers and enriches with capabilities."""
         logger.info("Refreshing AI model registry...")

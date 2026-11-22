@@ -71,6 +71,8 @@ class TestCaseDesignAgent(BaseAgent):
         )
 
     def run(self, input_data: TestCaseDesignInput, project_id: Optional[str] = None) -> TestCaseDesignOutput:
+        from src.core.security.sanitizer import prompt_sanitizer
+
         scenario_prompts = []
         for s in input_data.scenarios:
             scenario_prompts.append(
@@ -81,9 +83,13 @@ class TestCaseDesignAgent(BaseAgent):
                 f"Expected Outcome: {s.expected_outcome}"
             )
 
+        wrapped_scenarios = prompt_sanitizer.wrap_untrusted_input(
+            "\n\n".join(scenario_prompts), label="client_scenarios_data"
+        )
+
         prompt = f"""Convert these scenarios into detailed, step-by-step test cases with synthetic test data:
 
-{chr(10).join(scenario_prompts)}
+{wrapped_scenarios}
 
 Return valid JSON matching the TestCaseDesignOutput schema."""
 

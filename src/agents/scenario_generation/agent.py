@@ -60,6 +60,8 @@ class ScenarioGenerationAgent(BaseAgent):
         )
 
     def run(self, input_data: ScenarioGenerationInput, project_id: Optional[str] = None) -> ScenarioGenerationOutput:
+        from src.core.security.sanitizer import prompt_sanitizer
+
         req_summaries = []
         for r in input_data.requirements:
             req_summaries.append(
@@ -70,9 +72,13 @@ class ScenarioGenerationAgent(BaseAgent):
                 f"Business Rules: {'; '.join(r.business_rules)}"
             )
 
-        prompt = f"""Generate comprehensive test scenarios for the following approved requirements:
+        wrapped_reqs = prompt_sanitizer.wrap_untrusted_input(
+            "\n\n".join(req_summaries), label="approved_requirements_data"
+        )
 
-{chr(10).join(req_summaries)}
+        prompt = f"""Generate comprehensive test scenarios for the following approved requirements data:
+
+{wrapped_reqs}
 
 Ensure every requirement has:
 1. Positive test scenario

@@ -13,6 +13,7 @@ from src.database.session import SessionLocal
 from src.models.entities import AgentExecution
 from src.core.logging import get_logger
 from src.core.exceptions import AgentExecutionError
+from src.core.security.sanitizer import prompt_sanitizer
 
 logger = get_logger("base_agent")
 
@@ -42,12 +43,15 @@ class BaseAgent(ABC):
         provider, model_id = agent_model_router.get_provider_and_model(self.agent_id)
         logger.info(f"Agent '{self.agent_name}' ({self.agent_id}) running on {provider.__class__.__name__} [{model_id}]")
 
+        # Defense-in-depth: automatically redact any accidentally included credentials from outgoing prompt
+        safe_prompt = prompt_sanitizer.redact_secrets(prompt)
+
         last_error = None
         for attempt in range(max_retries + 1):
             start_time = time.time()
             try:
                 response = provider.generate_structured(
-                    prompt=prompt,
+                    prompt=safe_prompt,
                     system_prompt=self.system_instructions,
                     output_schema=output_schema,
                     model=model_id,

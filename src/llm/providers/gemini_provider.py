@@ -16,6 +16,12 @@ logger = get_logger("gemini_provider")
 
 class GeminiProvider(BaseLLMProvider):
     def __init__(self, api_key: Optional[str] = None):
+        if api_key is None:
+            try:
+                from src.core.security.secrets_manager import secrets_manager
+                api_key = secrets_manager.get_secret("gemini") or secrets_manager.get_secret("gemini_api_key")
+            except Exception:
+                pass
         super().__init__(api_key=api_key or settings.GEMINI_API_KEY)
         self._client = None
         self._init_client()

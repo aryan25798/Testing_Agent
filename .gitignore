@@ -13,6 +13,11 @@ venv.bak/
 *.pem
 *.cert
 *.pfx
+*.enc
+*.vault
+data/
+.secrets_vault.enc
+.master.key
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -1,14 +1,18 @@
 """
 Multi-format Requirement Document Parser.
 Extracts raw text and requirements from PDF, Word (.docx), Excel (.xlsx), CSV, Markdown, and TXT files.
+Hardened with file size caps, ZIP bomb mitigation, and ZIP slip path traversal defenses.
 """
 
 import io
 import csv
+import zipfile
 from pathlib import Path
 from typing import Union, List, Dict, Any
+from src.config.settings import settings
 from src.core.exceptions import ValidationError
 from src.core.logging import get_logger
+from src.core.security.audit_logger import audit_logger
 
 logger = get_logger("file_parser")
 
@@ -17,7 +21,24 @@ class DocumentParser:
     @staticmethod
     def parse_file(file_content: bytes, filename: str) -> str:
         """Parses raw bytes of an uploaded file into clean text based on file extension."""
+        # Enforce maximum upload size limit (DoS prevention)
+        if len(file_content) > settings.MAX_UPLOAD_SIZE_BYTES:
+            max_mb = settings.MAX_UPLOAD_SIZE_BYTES // (1024 * 1024)
+            audit_logger.log_event(
+                action="FILE_UPLOAD_REJECTED_TOO_LARGE",
+                status="REJECTED",
+                details={"filename": filename, "size_bytes": len(file_content), "limit_mb": max_mb},
+                severity="WARNING",
+            )
+            raise ValidationError(f"File size ({len(file_content)} bytes) exceeds maximum upload limit of {max_mb}MB.")
+
         ext = Path(filename).suffix.lower()
+
+        audit_logger.log_event(
+            action="FILE_PARSE_ATTEMPT",
+            status="PROCESSING",
+            details={"filename": filename, "extension": ext, "size_bytes": len(file_content)},
+        )
 
         if ext == ".pdf":
             return DocumentParser._parse_pdf(file_content)
@@ -111,20 +132,41 @@ class DocumentParser:
 
     @staticmethod
     def _parse_project_zip(content: bytes, destination_dir: Any = None) -> str:
-        import zipfile
         try:
             with zipfile.ZipFile(io.BytesIO(content)) as zf:
+                infolist = zf.infolist()
+
+                # 1. ZIP Bomb Defense: File count cap
+                if len(infolist) > settings.MAX_ZIP_FILES:
+                    raise ValidationError(
+                        f"Security Error: ZIP archive contains {len(infolist)} files, exceeding limit ({settings.MAX_ZIP_FILES})."
+                    )
+
+                # 2. ZIP Bomb Defense: Decompressed total size check
+                total_uncompressed = sum(info.file_size for info in infolist)
+                if total_uncompressed > settings.MAX_ZIP_DECOMPRESSED_BYTES:
+                    max_dec_mb = settings.MAX_ZIP_DECOMPRESSED_BYTES // (1024 * 1024)
+                    raise ValidationError(
+                        f"Security Error: Decompressed ZIP size ({total_uncompressed} bytes) exceeds limit of {max_dec_mb}MB."
+                    )
+
+                # 3. ZIP Slip Defense: Path traversal check
+                dest_res = Path(destination_dir).resolve() if destination_dir else None
+                for member in infolist:
+                    clean_name = member.filename
+                    if clean_name.startswith(("/", "\\")) or ".." in clean_name:
+                        raise ValidationError(f"Security Error: ZIP entry contains path traversal: {clean_name}")
+
+                    if dest_res:
+                        target = (dest_res / clean_name).resolve()
+                        if not str(target).startswith(str(dest_res)):
+                            raise ValidationError(f"Security Error: Zip slip path traversal detected: {clean_name}")
+
+                if dest_res:
+                    dest_res.mkdir(parents=True, exist_ok=True)
+                    zf.extractall(dest_res)
+
                 file_list = zf.namelist()
-                # Security: prevent zip slip path traversal
-                for member in file_list:
-                    if member.startswith("/") or ".." in member:
-                        raise ValidationError("Security Error: Insecure ZIP archive containing relative path traversal.")
-
-                if destination_dir:
-                    dest = Path(destination_dir)
-                    dest.mkdir(parents=True, exist_ok=True)
-                    zf.extractall(dest)
-
                 summary_lines = [f"=== Client Project Archive Analysis ({len(file_list)} files) ==="]
 
                 readme_files = [f for f in file_list if "readme" in f.lower() and not f.endswith("/")]
@@ -163,6 +205,8 @@ class DocumentParser:
                         summary_lines.append(f"  {el}")
 
                 return "\n".join(summary_lines)
+        except ValidationError:
+            raise
         except Exception as e:
             logger.error(f"Error parsing ZIP archive: {e}")
             raise ValidationError(f"Failed to process project ZIP archive: {e}")

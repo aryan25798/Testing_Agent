@@ -64,16 +64,19 @@ class RequirementAnalysisAgent(BaseAgent):
         )
 
     def run(self, input_data: RequirementAnalysisInput, project_id: Optional[str] = None) -> RequirementAnalysisOutput:
-        prompt = f"""Please analyze the following software requirements text:
+        from src.core.security.sanitizer import prompt_sanitizer
+
+        wrapped_requirements = prompt_sanitizer.wrap_untrusted_input(
+            input_data.raw_text, label=f"client_requirement_{input_data.source_type}"
+        )
+
+        prompt = f"""Please analyze the following software requirements data:
 
 Source Type: {input_data.source_type}
 Issue Key: {input_data.jira_issue_key or 'N/A'}
 Title: {input_data.title}
 
-REQUIREMENTS CONTENT:
-\"\"\"
-{input_data.raw_text}
-\"\"\"
+{wrapped_requirements}
 
 Extract all distinct requirements into the structured format. Ensure every requirement has traceable functional requirements, acceptance criteria, risk level, and clarification questions for any ambiguities."""
 

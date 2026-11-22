@@ -33,13 +33,17 @@ class Settings(BaseSettings):
 
     # Security
     SECRET_KEY: str = "dev_secret_key_testing_agent_platform_2026_local"
-    ALLOWED_HOSTS: List[str] = ["*"]
+    APP_MASTER_KEY: Optional[str] = Field(default=None, description="Master key for encrypted secrets vault")
+    ALLOWED_HOSTS: List[str] = ["localhost", "127.0.0.1", "testserver"]
     CORS_ORIGINS: List[str] = [
         "http://localhost:4200",
         "http://127.0.0.1:4200",
         "http://localhost:4201",
         "http://127.0.0.1:4201",
     ]
+    MAX_UPLOAD_SIZE_BYTES: int = 25 * 1024 * 1024  # 25 MB max upload
+    MAX_ZIP_DECOMPRESSED_BYTES: int = 50 * 1024 * 1024  # 50 MB max decompressed
+    MAX_ZIP_FILES: int = 500
 
     # Database
     DATABASE_URL: str = Field(
