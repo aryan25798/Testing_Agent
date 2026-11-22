@@ -250,7 +250,7 @@ import {
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800 text-xs">
                 <div class="min-w-0">
                   <span class="text-slate-400 text-[10px] block uppercase font-bold">Transport Layer</span>
-                  <span class="font-mono text-slate-700 dark:text-slate-200 font-semibold truncate block">{{ getServer('atlassian')?.transport || 'stdio / sse' }}</span>
+                  <span class="font-mono text-slate-700 dark:text-slate-200 font-semibold truncate block">{{ getServer('atlassian')?.transport || 'stdio (Subprocess)' }}</span>
                 </div>
                 <div class="min-w-0">
                   <span class="text-slate-400 text-[10px] block uppercase font-bold">Execution Mode</span>
@@ -263,9 +263,15 @@ import {
                   <span class="font-bold text-slate-900 dark:text-white font-mono truncate block">{{ getServer('atlassian')?.available_tools_count || 0 }} tools active</span>
                 </div>
                 <div class="min-w-0">
-                  <span class="text-slate-400 text-[10px] block uppercase font-bold">Host Endpoint</span>
+                  <span class="text-slate-400 text-[10px] block uppercase font-bold">Authenticated User</span>
                   <span class="font-semibold text-slate-700 dark:text-slate-200 truncate block">
-                    {{ getServer('atlassian')?.server_url || 'mcp.atlassian.com' }}
+                    {{ getServer('atlassian')?.account_login || 'Not logged in' }}
+                  </span>
+                </div>
+                <div class="min-w-0 sm:col-span-2 pt-1 border-t border-slate-200/40 dark:border-slate-700/40" *ngIf="getServer('atlassian')?.server_url">
+                  <span class="text-slate-400 text-[10px] block uppercase font-bold">Host Endpoint</span>
+                  <span class="font-mono text-[11px] text-blue-600 dark:text-blue-400 truncate block">
+                    {{ getServer('atlassian')?.server_url }}
                   </span>
                 </div>
               </div>

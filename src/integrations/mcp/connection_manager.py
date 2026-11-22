@@ -68,10 +68,7 @@ class MCPConnectionManager:
         """Seeds initial MCPServerConnection rows in database if not already present."""
         try:
             with SessionLocal() as db:
-                gh = db.query(MCPServerConnection).filter(
-                    MCPServerConnection.provider == "github",
-                    MCPServerConnection.server_name.like("%Official%")
-                ).first()
+                gh = db.query(MCPServerConnection).filter(MCPServerConnection.provider == "github").first()
                 if not gh:
                     gh = MCPServerConnection(
                         provider="github",
@@ -84,17 +81,12 @@ class MCPConnectionManager:
                     )
                     db.add(gh)
 
-                atl = db.query(MCPServerConnection).filter(
-                    MCPServerConnection.provider == "atlassian",
-                    MCPServerConnection.server_name.like("%Official%")
-                ).first()
+                atl = db.query(MCPServerConnection).filter(MCPServerConnection.provider == "atlassian").first()
                 if not atl:
-                    mcp_atlassian_exe = str(Path(sys.executable).parent / "mcp-atlassian.exe")
                     atl = MCPServerConnection(
                         provider="atlassian",
                         server_name="Official Atlassian MCP Server",
                         transport="stdio",
-                        command=json.dumps([mcp_atlassian_exe, "--transport", "stdio", "--read-only"]),
                         server_url="https://mcp.atlassian.com/v2/mcp",
                         auth_type="token",
                         status="disconnected",
@@ -108,32 +100,61 @@ class MCPConnectionManager:
 
     def get_server_status(self, provider: str) -> Dict[str, Any]:
         """Returns live connection and capability status for a provider."""
+        prov_key = provider.lower().strip()
         with SessionLocal() as db:
-            server = (
+            # Query prioritizing active connected servers with tools
+            servers = (
                 db.query(MCPServerConnection)
-                .filter(MCPServerConnection.provider == provider.lower(), MCPServerConnection.server_name.like("%Official%"))
-                .first()
-                or db.query(MCPServerConnection)
-                .filter(MCPServerConnection.provider == provider.lower())
-                .first()
+                .filter(MCPServerConnection.provider == prov_key)
+                .all()
             )
-            if not server:
+            if not servers:
                 return {
-                    "provider": provider.lower(),
-                    "server_name": f"{provider.title()} MCP Server",
-                    "status": "not_configured",
+                    "provider": prov_key,
+                    "server_name": f"Official {provider.title()} MCP Server",
+                    "status": "disconnected",
                     "available_tools_count": 0,
                     "is_read_only": True,
                 }
 
+            # Pick the server with connected status, or the one with the most tools, or latest connected
+            def server_score(s: MCPServerConnection):
+                cnt = db.query(MCPDiscoveredTool).filter(MCPDiscoveredTool.server_id == s.id).count()
+                status_score = 1000 if s.status == "connected" else 0
+                return status_score + cnt
+
+            servers.sort(key=server_score, reverse=True)
+            server = servers[0]
             tools_count = db.query(MCPDiscoveredTool).filter(MCPDiscoveredTool.server_id == server.id).count()
+
+            # Dynamic GitHub authenticated user lookup if not yet populated
+            if prov_key == "github" and not server.account_login:
+                try:
+                    import httpx
+                    auth_token = secrets_manager.get_secret("github")
+                    if auth_token:
+                        r = httpx.get(
+                            "https://api.github.com/user",
+                            headers={"Authorization": f"Bearer {auth_token}", "Accept": "application/vnd.github.v3+json"},
+                            timeout=3.0,
+                        )
+                        if r.status_code == 200:
+                            gh_user = r.json()
+                            server.account_login = gh_user.get("login")
+                            server.account_name = gh_user.get("name")
+                            db.commit()
+                except Exception as e:
+                    logger.debug(f"GitHub user profile lookup: {e}")
+
+            # Ensure canonical naming
+            canonical_name = f"Official {'GitHub' if prov_key == 'github' else 'Atlassian'} MCP Server"
 
             return {
                 "id": server.id,
                 "provider": server.provider,
-                "server_name": server.server_name,
-                "transport": server.transport,
-                "server_url": server.server_url,
+                "server_name": canonical_name,
+                "transport": server.transport or ("stdio" if prov_key == "github" else "sse"),
+                "server_url": server.server_url or ("https://aryan220518.atlassian.net" if prov_key == "atlassian" else None),
                 "account_login": server.account_login,
                 "account_name": server.account_name,
                 "status": server.status,
