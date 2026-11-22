@@ -55,45 +55,48 @@ import * as echarts from 'echarts';
         <!-- LEFT COLUMN (col-span-8) -->
         <!-- =============================================================== -->
         <div class="lg:col-span-8 space-y-6 min-w-0">
-          <!-- 1. HERO BANNER -->
-          <div class="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 dark:from-blue-700 dark:via-indigo-900 dark:to-slate-900 rounded-2xl p-6 sm:p-7 text-white flex flex-col justify-between shadow-card relative overflow-hidden min-h-[190px]">
-            <div class="z-10 max-w-md sm:max-w-lg space-y-2">
-              <h2 class="text-xl sm:text-2xl font-black tracking-tight leading-snug">
-                Accelerate Your Testing with AI Agents
-              </h2>
-              <p class="text-blue-100 dark:text-blue-200/90 text-xs sm:text-sm font-medium tracking-wide">
-                Plan &bull; Generate &bull; Automate &bull; Validate &bull; Report
-              </p>
+          <!-- 1. HERO BANNER (Responsive 2-column flexbox: No absolute collision) -->
+          <div class="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 dark:from-blue-700 dark:via-indigo-900 dark:to-slate-900 rounded-2xl p-6 sm:p-7 text-white shadow-card flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
+            <!-- Left Column: Copy & Actions -->
+            <div class="flex-1 min-w-0 space-y-4 z-10">
+              <div class="space-y-2">
+                <h2 class="text-xl sm:text-2xl font-black tracking-tight leading-snug">
+                  Accelerate Your Testing with AI Agents
+                </h2>
+                <p class="text-blue-100 dark:text-blue-200/90 text-xs sm:text-sm font-medium tracking-wide">
+                  Plan &bull; Generate &bull; Automate &bull; Validate &bull; Report
+                </p>
+              </div>
+
+              <div class="flex items-center gap-3 flex-wrap pt-1">
+                <a
+                  routerLink="/agents"
+                  class="inline-flex items-center gap-2 bg-white hover:bg-blue-50 text-slate-900 font-bold px-4 py-2.5 rounded-xl text-xs sm:text-sm transition-all transform hover:-translate-y-0.5 shadow-md shrink-0"
+                >
+                  <span>Explore My Agents</span>
+                  <app-icon name="arrow-right" size="14" class="text-blue-600"></app-icon>
+                </a>
+
+                <a
+                  routerLink="/workflows"
+                  class="inline-flex items-center gap-1.5 bg-blue-700/60 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl text-xs sm:text-sm transition-all border border-blue-400/30 backdrop-blur-sm shrink-0"
+                >
+                  <app-icon name="play" size="14"></app-icon>
+                  <span>Run Workflows</span>
+                </a>
+              </div>
             </div>
 
-            <div class="z-10 pt-4 flex items-center gap-3 flex-wrap">
-              <a
-                routerLink="/agents"
-                class="inline-flex items-center gap-2 bg-white hover:bg-blue-50 text-slate-900 font-bold px-4 py-2.5 rounded-xl text-xs sm:text-sm transition-all transform hover:-translate-y-0.5 shadow-md"
-              >
-                <span>Explore My Agents</span>
-                <app-icon name="arrow-right" size="14" class="text-blue-600"></app-icon>
-              </a>
-
-              <a
-                routerLink="/workflows"
-                class="inline-flex items-center gap-1.5 bg-blue-700/60 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl text-xs sm:text-sm transition-all border border-blue-400/30 backdrop-blur-sm"
-              >
-                <app-icon name="play" size="14"></app-icon>
-                <span>Run Workflows</span>
-              </a>
-            </div>
-
-            <!-- 3D Robot Illustration -->
-            <div class="absolute right-3 sm:right-6 bottom-1 sm:bottom-2 pointer-events-none opacity-95 hidden sm:block">
-              <div class="relative w-36 h-36 md:w-44 md:h-44 flex items-center justify-center">
+            <!-- Right Column: 3D Robot Mascot (Cleanly separated in dedicated column, never overlapping) -->
+            <div class="shrink-0 flex items-center justify-center self-center md:self-auto z-10">
+              <div class="relative w-28 h-28 sm:w-36 sm:h-36 md:w-40 md:h-40 flex items-center justify-center">
                 <img
                   src="/qa_robot_assistant.jpg"
                   alt="AI QA Mascot"
-                  class="w-32 h-32 md:w-40 md:h-40 object-contain rounded-2xl drop-shadow-2xl border border-white/20 transform rotate-[-2deg]"
+                  class="w-full h-full object-contain rounded-2xl drop-shadow-2xl border border-white/20 transform rotate-[-2deg]"
                   (error)="onImgError($event)"
                 />
-                <div class="absolute -top-1 -left-1 bg-indigo-500/95 backdrop-blur-md text-white text-[10px] font-mono font-bold px-2 py-0.5 rounded-md border border-white/20 shadow-lg">
+                <div class="absolute -top-1 -left-1 bg-indigo-500/95 backdrop-blur-md text-white text-[10px] font-mono font-bold px-2 py-0.5 rounded-md border border-white/20 shadow-lg pointer-events-none">
                   &lt;/&gt;
                 </div>
               </div>
@@ -132,7 +135,7 @@ import * as echarts from 'echarts';
             </div>
 
             <!-- Projects Grid (Actual Records) -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" *ngIf="displayProjects.length > 0; else noProjectsTpl">
+            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4" *ngIf="displayProjects.length > 0; else noProjectsTpl">
               <div
                 *ngFor="let proj of displayProjects; let i = index"
                 (click)="openProject(proj)"
@@ -159,7 +162,7 @@ import * as echarts from 'echarts';
                   <h3 class="font-bold text-slate-900 dark:text-white text-sm group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors line-clamp-2 min-h-[38px] leading-snug" [title]="proj.name">
                     {{ proj.name }}
                   </h3>
-                  <p class="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5" [title]="proj.description || ''">
+                  <p class="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2 mt-0.5" [title]="proj.description || ''">
                     {{ proj.description || 'Automated QA testing workspace' }}
                   </p>
 
@@ -183,19 +186,6 @@ import * as echarts from 'echarts';
                     <span>{{ proj.executions_count || 0 }} Runs</span>
                   </div>
                 </div>
-              </div>
-
-              <!-- Create New Project Card slot (Only shown if fewer than 4 projects exist to fill row) -->
-              <div
-                *ngIf="displayProjects.length > 0 && displayProjects.length < 4"
-                (click)="router.navigate(['/projects'], { queryParams: { action: 'new' } })"
-                class="bg-white/60 dark:bg-slate-900/60 rounded-2xl p-4.5 border-2 border-dashed border-slate-300 dark:border-slate-800 hover:border-blue-500 dark:hover:border-blue-500 transition-all cursor-pointer flex flex-col items-center justify-center text-center group min-h-[160px]"
-              >
-                <div class="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform shrink-0">
-                  <app-icon name="plus" size="20"></app-icon>
-                </div>
-                <div class="text-xs font-bold text-slate-800 dark:text-slate-200">Add New Project</div>
-                <div class="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Configure target repository</div>
               </div>
             </div>
 
@@ -676,8 +666,8 @@ export class DashboardComponent implements OnInit, OnDestroy, AfterViewInit {
     this.api.getDashboardOverview().subscribe({
       next: (res) => {
         this.data = res;
-        // Strictly Real SQLite Data Only: No Mock Fallbacks
-        this.displayProjects = res.recent_projects || [];
+        // Strictly Real SQLite Data Only: No Mock Fallbacks (Top 4 recent for preview grid)
+        this.displayProjects = (res.recent_projects || []).slice(0, 4);
         this.setupDisplayActivities(res.recent_activity || []);
         this.updateChart();
       },

@@ -226,7 +226,7 @@ import { IconComponent } from '../../shared/components/icon.component';
         <div class="space-y-4">
           <div
             *ngFor="let a of coreAgents"
-            class="p-4 sm:p-5 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition-all flex flex-col xl:flex-row xl:items-center justify-between gap-4"
+            class="p-4 sm:p-5 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition-all flex flex-col 2xl:flex-row 2xl:items-center justify-between gap-4 min-w-0"
           >
             <!-- Agent Info (Left) -->
             <div class="flex items-start gap-3.5 min-w-0 flex-1">
@@ -236,7 +236,7 @@ import { IconComponent } from '../../shared/components/icon.component';
               >
                 <app-icon [name]="a.iconName" size="18"></app-icon>
               </div>
-              <div class="min-w-0">
+              <div class="min-w-0 flex-1">
                 <div class="font-bold text-slate-900 dark:text-white text-sm">
                   {{ a.name }}
                 </div>
@@ -247,9 +247,9 @@ import { IconComponent } from '../../shared/components/icon.component';
             </div>
 
             <!-- Agent Model Assignment Controls (Right: Provider Icons + Model Selector + Save) -->
-            <div class="flex flex-wrap items-center gap-3 shrink-0">
+            <div class="flex flex-wrap items-end gap-2.5 sm:gap-3 w-full 2xl:w-auto pt-3 2xl:pt-0 border-t border-slate-200/60 dark:border-slate-800/80 2xl:border-t-0 shrink-0">
               <!-- 1. Visual Provider Selector with Official Brand Icons -->
-              <div class="flex flex-col gap-1">
+              <div class="flex flex-col gap-1 shrink-0">
                 <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                   Provider
                 </span>
@@ -281,7 +281,7 @@ import { IconComponent } from '../../shared/components/icon.component';
               </div>
 
               <!-- 2. Model Dropdown with Chip Icon -->
-              <div class="flex flex-col gap-1 min-w-[200px] sm:min-w-[240px]">
+              <div class="flex flex-col gap-1 min-w-[170px] sm:min-w-[220px] flex-1 sm:flex-initial max-w-full">
                 <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                   Model Endpoint
                 </span>
@@ -309,13 +309,10 @@ import { IconComponent } from '../../shared/components/icon.component';
               </div>
 
               <!-- 3. Save Button with Feedback -->
-              <div class="flex flex-col gap-1">
-                <span class="text-[10px] font-bold text-transparent select-none uppercase tracking-wider">
-                  Save
-                </span>
+              <div class="flex flex-col gap-1 shrink-0">
                 <button
                   (click)="saveAgentModel(a.id)"
-                  class="h-[38px] px-4 font-bold text-xs rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer shrink-0"
+                  class="h-[38px] px-4 font-bold text-xs rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
                   [ngClass]="savedState[a.id] ? 'bg-emerald-600 text-white' : 'bg-slate-900 hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-700 text-white'"
                 >
                   <app-icon [name]="savedState[a.id] ? 'check' : 'check-circle-2'" size="13"></app-icon>

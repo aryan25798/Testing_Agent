@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
@@ -125,51 +125,51 @@ import {
       <!-- TAB 1: MCP Server Connections (Cards)      -->
       <!-- ========================================== -->
       <div *ngIf="activeTab === 'servers'" class="space-y-6">
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
           <!-- 1. Official GitHub MCP Server Card -->
-          <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-6 flex flex-col justify-between shadow-subtle hover:border-slate-300 dark:hover:border-slate-700 transition-all">
-            <div class="space-y-4">
+          <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 flex flex-col justify-between shadow-subtle hover:border-slate-300 dark:hover:border-slate-700 transition-all min-w-0">
+            <div class="space-y-4 min-w-0">
               <!-- Top Provider Header -->
-              <div class="flex items-start justify-between gap-4">
-                <div class="flex items-center gap-3">
-                  <div class="w-12 h-12 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-xl shadow-md border border-slate-700">
-                    <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24">
+              <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4 min-w-0">
+                <div class="flex items-start gap-3 min-w-0 flex-1">
+                  <div class="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-xl shadow-md border border-slate-700 shrink-0">
+                    <svg class="w-5 h-5 sm:w-6 sm:h-6 fill-current" viewBox="0 0 24 24">
                       <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
                     </svg>
                   </div>
-                  <div>
+                  <div class="min-w-0 flex-1">
                     <h3 class="font-bold text-slate-900 dark:text-white text-base">Official GitHub MCP Server</h3>
-                    <p class="text-[11px] text-slate-400">Official protocol stdio client via &#64;modelcontextprotocol/server-github</p>
+                    <p class="text-[11px] text-slate-400 break-words mt-0.5">Official protocol stdio client via &#64;modelcontextprotocol/server-github</p>
                   </div>
                 </div>
 
                 <!-- Status Pill -->
                 <span
-                  class="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5"
+                  class="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 shrink-0 self-start whitespace-nowrap"
                   [ngClass]="getServer('github')?.status === 'connected' ? 'bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 border border-emerald-500/20' : 'bg-slate-200 dark:bg-slate-800 text-slate-500 border border-slate-300 dark:border-slate-700'"
                 >
-                  <span class="w-1.5 h-1.5 rounded-full" [ngClass]="getServer('github')?.status === 'connected' ? 'bg-emerald-500' : 'bg-slate-400'"></span>
+                  <span class="w-1.5 h-1.5 rounded-full shrink-0" [ngClass]="getServer('github')?.status === 'connected' ? 'bg-emerald-500' : 'bg-slate-400'"></span>
                   {{ getServer('github')?.status || 'Disconnected' }}
                 </span>
               </div>
 
               <!-- Technical Details Matrix -->
-              <div class="grid grid-cols-2 gap-3 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800 text-xs">
-                <div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800 text-xs">
+                <div class="min-w-0">
                   <span class="text-slate-400 text-[10px] block uppercase font-bold">Transport Layer</span>
-                  <span class="font-mono text-slate-700 dark:text-slate-200 font-semibold">stdio (Subprocess)</span>
+                  <span class="font-mono text-slate-700 dark:text-slate-200 font-semibold truncate block">stdio (Subprocess)</span>
                 </div>
-                <div>
+                <div class="min-w-0">
                   <span class="text-slate-400 text-[10px] block uppercase font-bold">Execution Mode</span>
-                  <span class="font-semibold" [ngClass]="getServer('github')?.is_read_only ? 'text-amber-500 dark:text-amber-400' : 'text-blue-500'">
+                  <span class="font-semibold truncate block" [ngClass]="getServer('github')?.is_read_only ? 'text-amber-500 dark:text-amber-400' : 'text-blue-500'">
                     {{ getServer('github')?.is_read_only ? 'Read-Only (Enforced)' : 'Read & Write' }}
                   </span>
                 </div>
-                <div>
+                <div class="min-w-0">
                   <span class="text-slate-400 text-[10px] block uppercase font-bold">Discovered Tools</span>
-                  <span class="font-bold text-slate-900 dark:text-white font-mono">{{ getServer('github')?.available_tools_count || 0 }} tools active</span>
+                  <span class="font-bold text-slate-900 dark:text-white font-mono truncate block">{{ getServer('github')?.available_tools_count || 0 }} tools active</span>
                 </div>
-                <div>
+                <div class="min-w-0">
                   <span class="text-slate-400 text-[10px] block uppercase font-bold">Authenticated User</span>
                   <span class="font-semibold text-slate-700 dark:text-slate-200 truncate block">
                     {{ getServer('github')?.account_login || 'Not logged in' }}
@@ -180,32 +180,32 @@ import {
               <!-- Capabilities Highlight -->
               <div class="text-[11px] text-slate-500 dark:text-slate-400 space-y-1">
                 <div class="flex items-center gap-1.5">
-                  <app-icon name="check" size="12" class="text-emerald-500"></app-icon>
+                  <app-icon name="check" size="12" class="text-emerald-500 shrink-0"></app-icon>
                   <span>Repository tree browsing, file inspection, and commit tracking.</span>
                 </div>
                 <div class="flex items-center gap-1.5">
-                  <app-icon name="check" size="12" class="text-emerald-500"></app-icon>
+                  <app-icon name="check" size="12" class="text-emerald-500 shrink-0"></app-icon>
                   <span>Read PRs, issues, and test code for context-aware automation.</span>
                 </div>
                 <div class="flex items-center gap-1.5">
-                  <app-icon name="shield-check" size="12" class="text-blue-500"></app-icon>
+                  <app-icon name="shield-check" size="12" class="text-blue-500 shrink-0"></app-icon>
                   <span>Tokens stored exclusively in AES-256 backend vault. Never sent to browser.</span>
                 </div>
               </div>
 
               <!-- Error Box if any -->
-              <div *ngIf="getServer('github')?.last_error" class="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs">
+              <div *ngIf="getServer('github')?.last_error" class="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs break-words">
                 {{ getServer('github')?.last_error }}
               </div>
             </div>
 
             <!-- Action Buttons -->
-            <div class="pt-5 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-3">
+            <div class="pt-5 mt-4 border-t border-slate-100 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
               <button
                 *ngIf="getServer('github')?.status === 'connected'"
                 (click)="disconnectServer('github')"
                 [disabled]="connectingGithub"
-                class="px-4 py-2 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 transition-colors"
+                class="px-4 py-2.5 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 transition-colors w-full sm:w-auto text-center"
               >
                 Disconnect
               </button>
@@ -213,7 +213,7 @@ import {
               <button
                 (click)="openGithubModal()"
                 [disabled]="connectingGithub"
-                class="ml-auto px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-glow-blue flex items-center gap-2 transition-all disabled:opacity-50"
+                class="sm:ml-auto w-full sm:w-auto px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-glow-blue flex items-center justify-center gap-2 transition-all disabled:opacity-50"
               >
                 <app-icon name="network" size="14"></app-icon>
                 <span>{{ getServer('github')?.status === 'connected' ? 'Configure & Reconnect' : 'Connect GitHub MCP' }}</span>
@@ -222,49 +222,49 @@ import {
           </div>
 
           <!-- 2. Official Atlassian / Jira MCP Server Card -->
-          <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-6 flex flex-col justify-between shadow-subtle hover:border-slate-300 dark:hover:border-slate-700 transition-all">
-            <div class="space-y-4">
+          <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 flex flex-col justify-between shadow-subtle hover:border-slate-300 dark:hover:border-slate-700 transition-all min-w-0">
+            <div class="space-y-4 min-w-0">
               <!-- Top Provider Header -->
-              <div class="flex items-start justify-between gap-4">
-                <div class="flex items-center gap-3">
-                  <div class="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-xl shadow-md">
-                    <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24">
+              <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4 min-w-0">
+                <div class="flex items-start gap-3 min-w-0 flex-1">
+                  <div class="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-xl shadow-md shrink-0">
+                    <svg class="w-5 h-5 sm:w-6 sm:h-6 fill-current" viewBox="0 0 24 24">
                       <path d="M11.53 2c0 2.4-1.97 4.35-4.4 4.35H2.8C2.36 6.35 2 6.71 2 7.15v4.33c0 .44.36.8.8.8h4.33c2.4 0 4.4 1.95 4.4 4.35 0 2.4-1.97 4.35-4.4 4.35H2.8c-.44 0-.8.36-.8.8v.22c0 .44.36.8.8.8h4.33c4.2 0 7.6-3.4 7.6-7.6 0-1.87-.67-3.58-1.8-4.9 1.13-1.32 1.8-3.03 1.8-4.9 0-4.2-3.4-7.6-7.6-7.6H2.8c-.44 0-.8.36-.8.8v.22c0 .44.36.8.8.8h4.33c2.43 0 4.4 1.95 4.4 4.35z"/>
                     </svg>
                   </div>
-                  <div>
+                  <div class="min-w-0 flex-1">
                     <h3 class="font-bold text-slate-900 dark:text-white text-base">Official Atlassian MCP Server</h3>
-                    <p class="text-[11px] text-slate-400">Jira Software Cloud tools via official MCP server (SSE & stdio)</p>
+                    <p class="text-[11px] text-slate-400 break-words mt-0.5">Jira Software Cloud tools via official MCP server (SSE & stdio)</p>
                   </div>
                 </div>
 
                 <!-- Status Pill -->
                 <span
-                  class="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5"
+                  class="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 shrink-0 self-start whitespace-nowrap"
                   [ngClass]="getServer('atlassian')?.status === 'connected' ? 'bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 border border-emerald-500/20' : 'bg-slate-200 dark:bg-slate-800 text-slate-500 border border-slate-300 dark:border-slate-700'"
                 >
-                  <span class="w-1.5 h-1.5 rounded-full" [ngClass]="getServer('atlassian')?.status === 'connected' ? 'bg-emerald-500' : 'bg-slate-400'"></span>
+                  <span class="w-1.5 h-1.5 rounded-full shrink-0" [ngClass]="getServer('atlassian')?.status === 'connected' ? 'bg-emerald-500' : 'bg-slate-400'"></span>
                   {{ getServer('atlassian')?.status || 'Disconnected' }}
                 </span>
               </div>
 
               <!-- Technical Details Matrix -->
-              <div class="grid grid-cols-2 gap-3 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800 text-xs">
-                <div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800 text-xs">
+                <div class="min-w-0">
                   <span class="text-slate-400 text-[10px] block uppercase font-bold">Transport Layer</span>
-                  <span class="font-mono text-slate-700 dark:text-slate-200 font-semibold">{{ getServer('atlassian')?.transport || 'stdio / sse' }}</span>
+                  <span class="font-mono text-slate-700 dark:text-slate-200 font-semibold truncate block">{{ getServer('atlassian')?.transport || 'stdio / sse' }}</span>
                 </div>
-                <div>
+                <div class="min-w-0">
                   <span class="text-slate-400 text-[10px] block uppercase font-bold">Execution Mode</span>
-                  <span class="font-semibold" [ngClass]="getServer('atlassian')?.is_read_only ? 'text-amber-500 dark:text-amber-400' : 'text-blue-500'">
+                  <span class="font-semibold truncate block" [ngClass]="getServer('atlassian')?.is_read_only ? 'text-amber-500 dark:text-amber-400' : 'text-blue-500'">
                     {{ getServer('atlassian')?.is_read_only ? 'Read-Only (Enforced)' : 'Read & Write' }}
                   </span>
                 </div>
-                <div>
+                <div class="min-w-0">
                   <span class="text-slate-400 text-[10px] block uppercase font-bold">Discovered Tools</span>
-                  <span class="font-bold text-slate-900 dark:text-white font-mono">{{ getServer('atlassian')?.available_tools_count || 0 }} tools active</span>
+                  <span class="font-bold text-slate-900 dark:text-white font-mono truncate block">{{ getServer('atlassian')?.available_tools_count || 0 }} tools active</span>
                 </div>
-                <div>
+                <div class="min-w-0">
                   <span class="text-slate-400 text-[10px] block uppercase font-bold">Host Endpoint</span>
                   <span class="font-semibold text-slate-700 dark:text-slate-200 truncate block">
                     {{ getServer('atlassian')?.server_url || 'mcp.atlassian.com' }}
@@ -275,32 +275,32 @@ import {
               <!-- Capabilities Highlight -->
               <div class="text-[11px] text-slate-500 dark:text-slate-400 space-y-1">
                 <div class="flex items-center gap-1.5">
-                  <app-icon name="check" size="12" class="text-emerald-500"></app-icon>
+                  <app-icon name="check" size="12" class="text-emerald-500 shrink-0"></app-icon>
                   <span>Query Jira user stories, acceptance criteria, and issues via JQL.</span>
                 </div>
                 <div class="flex items-center gap-1.5">
-                  <app-icon name="check" size="12" class="text-emerald-500"></app-icon>
+                  <app-icon name="check" size="12" class="text-emerald-500 shrink-0"></app-icon>
                   <span>Dynamic issue schema inspection with zero hardcoded endpoints.</span>
                 </div>
                 <div class="flex items-center gap-1.5">
-                  <app-icon name="shield-check" size="12" class="text-blue-500"></app-icon>
+                  <app-icon name="shield-check" size="12" class="text-blue-500 shrink-0"></app-icon>
                   <span>Human approval required for any mutating actions (status changes, comments).</span>
                 </div>
               </div>
 
               <!-- Error Box if any -->
-              <div *ngIf="getServer('atlassian')?.last_error" class="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs">
+              <div *ngIf="getServer('atlassian')?.last_error" class="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs break-words">
                 {{ getServer('atlassian')?.last_error }}
               </div>
             </div>
 
             <!-- Action Buttons -->
-            <div class="pt-5 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-3">
+            <div class="pt-5 mt-4 border-t border-slate-100 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
               <button
                 *ngIf="getServer('atlassian')?.status === 'connected'"
                 (click)="disconnectServer('atlassian')"
                 [disabled]="connectingAtlassian"
-                class="px-4 py-2 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 transition-colors"
+                class="px-4 py-2.5 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 transition-colors w-full sm:w-auto text-center"
               >
                 Disconnect
               </button>
@@ -308,7 +308,7 @@ import {
               <button
                 (click)="openAtlassianModal()"
                 [disabled]="connectingAtlassian"
-                class="ml-auto px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-glow-blue flex items-center gap-2 transition-all disabled:opacity-50"
+                class="sm:ml-auto w-full sm:w-auto px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-glow-blue flex items-center justify-center gap-2 transition-all disabled:opacity-50"
               >
                 <app-icon name="network" size="14"></app-icon>
                 <span>{{ getServer('atlassian')?.status === 'connected' ? 'Configure & Reconnect' : 'Connect Atlassian MCP' }}</span>
@@ -671,60 +671,76 @@ import {
       <!-- ========================================== -->
       <!-- MODAL 1: Connect GitHub MCP Server         -->
       <!-- ========================================== -->
-      <div *ngIf="showGithubModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
-        <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 max-w-lg w-full p-6 shadow-2xl space-y-5">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold">
+      <div
+        *ngIf="showGithubModal"
+        (click)="closeGithubModal()"
+        class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm animate-fadeIn"
+      >
+        <div
+          (click)="$event.stopPropagation()"
+          class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 max-w-lg w-full max-h-[min(90vh,680px)] flex flex-col shadow-2xl overflow-hidden"
+        >
+          <!-- Modal Header (shrink-0) -->
+          <div class="p-5 sm:p-6 pb-3 sm:pb-4 border-b border-slate-100 dark:border-slate-800 shrink-0 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold shrink-0">
                 <app-icon name="folder" size="20"></app-icon>
               </div>
-              <div>
-                <h3 class="font-bold text-slate-900 dark:text-white text-base">Connect Official GitHub MCP</h3>
-                <p class="text-[11px] text-slate-400">Subprocess transport via &#64;modelcontextprotocol/server-github</p>
+              <div class="min-w-0">
+                <h3 class="font-bold text-slate-900 dark:text-white text-base truncate">Connect Official GitHub MCP</h3>
+                <p class="text-[11px] text-slate-400 truncate">Subprocess transport via &#64;modelcontextprotocol/server-github</p>
               </div>
             </div>
-            <button (click)="showGithubModal = false" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600">
+            <button
+              (click)="closeGithubModal()"
+              class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
+              aria-label="Close dialog"
+            >
               <app-icon name="x" size="16"></app-icon>
             </button>
           </div>
 
-          <div class="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 text-xs space-y-1">
-            <div class="font-bold flex items-center gap-1.5">
-              <app-icon name="shield-check" size="14"></app-icon>
-              <span>Zero-Exposure Security Guarantee</span>
-            </div>
-            <p class="text-[11px] text-blue-500 dark:text-blue-300">
-              Your Personal Access Token is saved into the backend encrypted vault (AES-256-GCM). It is never sent to the browser or stored in localStorage.
-            </p>
-          </div>
-
-          <div class="space-y-4">
-            <div>
-              <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                GitHub Personal Access Token (classic or fine-grained)
-              </label>
-              <input
-                type="password"
-                [(ngModel)]="githubTokenInput"
-                placeholder="ghp_xxxxxxxxxxxxxxxxxxxx (Leave blank to use vaulted secret)"
-                class="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:border-blue-500 outline-none font-mono"
-              />
-              <p class="text-[10px] text-slate-400 mt-1">Required scopes: <code class="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded">repo</code>, <code class="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded">read:org</code>.</p>
-            </div>
-
-            <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
-              <div>
-                <span class="text-xs font-bold text-slate-800 dark:text-slate-200 block">Enforce Read-Only Mode</span>
-                <span class="text-[10px] text-slate-400">Restricts AI agents to reading files and issues only.</span>
+          <!-- Modal Body (Scrollable flex-1) -->
+          <div class="p-5 sm:p-6 overflow-y-auto flex-1 space-y-4">
+            <div class="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 text-xs space-y-1">
+              <div class="font-bold flex items-center gap-1.5">
+                <app-icon name="shield-check" size="14"></app-icon>
+                <span>Zero-Exposure Security Guarantee</span>
               </div>
-              <input type="checkbox" [(ngModel)]="githubReadOnly" class="w-4 h-4 rounded text-blue-600 cursor-pointer" />
+              <p class="text-[11px] text-blue-500 dark:text-blue-300">
+                Your Personal Access Token is saved into the backend encrypted vault (AES-256-GCM). It is never sent to the browser or stored in localStorage.
+              </p>
+            </div>
+
+            <div class="space-y-4">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  GitHub Personal Access Token (classic or fine-grained)
+                </label>
+                <input
+                  type="password"
+                  [(ngModel)]="githubTokenInput"
+                  placeholder="ghp_xxxxxxxxxxxxxxxxxxxx (Leave blank to use vaulted secret)"
+                  class="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:border-blue-500 outline-none font-mono"
+                />
+                <p class="text-[10px] text-slate-400 mt-1">Required scopes: <code class="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded">repo</code>, <code class="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded">read:org</code>.</p>
+              </div>
+
+              <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
+                <div>
+                  <span class="text-xs font-bold text-slate-800 dark:text-slate-200 block">Enforce Read-Only Mode</span>
+                  <span class="text-[10px] text-slate-400">Restricts AI agents to reading files and issues only.</span>
+                </div>
+                <input type="checkbox" [(ngModel)]="githubReadOnly" class="w-4 h-4 rounded text-blue-600 cursor-pointer" />
+              </div>
             </div>
           </div>
 
-          <div class="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+          <!-- Modal Footer (shrink-0) -->
+          <div class="p-4 sm:p-5 border-t border-slate-100 dark:border-slate-800 shrink-0 flex items-center justify-end gap-3 bg-slate-50/50 dark:bg-slate-900/50">
             <button
-              (click)="showGithubModal = false"
-              class="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+              (click)="closeGithubModal()"
+              class="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
             >
               Cancel
             </button>
@@ -743,24 +759,37 @@ import {
       <!-- ========================================== -->
       <!-- MODAL 2: Connect Atlassian MCP Server      -->
       <!-- ========================================== -->
-      <div *ngIf="showAtlassianModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
-        <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 max-w-lg w-full p-6 shadow-2xl space-y-5">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold">
+      <div
+        *ngIf="showAtlassianModal"
+        (click)="closeAtlassianModal()"
+        class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm animate-fadeIn"
+      >
+        <div
+          (click)="$event.stopPropagation()"
+          class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 max-w-lg w-full max-h-[min(90vh,680px)] flex flex-col shadow-2xl overflow-hidden"
+        >
+          <!-- Modal Header (shrink-0) -->
+          <div class="p-5 sm:p-6 pb-3 sm:pb-4 border-b border-slate-100 dark:border-slate-800 shrink-0 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold shrink-0">
                 <app-icon name="workflow" size="20"></app-icon>
               </div>
-              <div>
-                <h3 class="font-bold text-slate-900 dark:text-white text-base">Connect Official Atlassian MCP</h3>
-                <p class="text-[11px] text-slate-400">Standard MCP connection to Jira Software Cloud</p>
+              <div class="min-w-0">
+                <h3 class="font-bold text-slate-900 dark:text-white text-base truncate">Connect Official Atlassian MCP</h3>
+                <p class="text-[11px] text-slate-400 truncate">Standard MCP connection to Jira Software Cloud</p>
               </div>
             </div>
-            <button (click)="showAtlassianModal = false" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600">
+            <button
+              (click)="closeAtlassianModal()"
+              class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
+              aria-label="Close dialog"
+            >
               <app-icon name="x" size="16"></app-icon>
             </button>
           </div>
 
-          <div class="space-y-4">
+          <!-- Modal Body (Scrollable flex-1) -->
+          <div class="p-5 sm:p-6 overflow-y-auto flex-1 space-y-4">
             <div>
               <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                 Transport Mode
@@ -819,10 +848,11 @@ import {
             </div>
           </div>
 
-          <div class="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+          <!-- Modal Footer (shrink-0) -->
+          <div class="p-4 sm:p-5 border-t border-slate-100 dark:border-slate-800 shrink-0 flex items-center justify-end gap-3 bg-slate-50/50 dark:bg-slate-900/50">
             <button
-              (click)="showAtlassianModal = false"
-              class="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+              (click)="closeAtlassianModal()"
+              class="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
             >
               Cancel
             </button>
@@ -840,7 +870,7 @@ import {
     </div>
   `,
 })
-export class IntegrationsComponent implements OnInit {
+export class IntegrationsComponent implements OnInit, OnDestroy {
   private api = inject(ApiService);
 
   activeTab: 'servers' | 'mappings' | 'tools' | 'approvals' | 'logs' = 'servers';
@@ -981,9 +1011,21 @@ export class IntegrationsComponent implements OnInit {
     });
   }
 
+  @HostListener('document:keydown.escape')
+  onEscapeKey() {
+    if (this.showGithubModal) this.closeGithubModal();
+    if (this.showAtlassianModal) this.closeAtlassianModal();
+  }
+
   openGithubModal() {
     this.githubTokenInput = '';
     this.showGithubModal = true;
+    this.updateBodyScrollLock();
+  }
+
+  closeGithubModal() {
+    this.showGithubModal = false;
+    this.updateBodyScrollLock();
   }
 
   submitGithubConnect() {
@@ -996,7 +1038,7 @@ export class IntegrationsComponent implements OnInit {
       .subscribe({
         next: (res) => {
           this.connectingGithub = false;
-          this.showGithubModal = false;
+          this.closeGithubModal();
           this.showToast('success', res.message || 'GitHub MCP Server connected successfully!');
           this.refreshAll();
         },
@@ -1010,6 +1052,12 @@ export class IntegrationsComponent implements OnInit {
   openAtlassianModal() {
     this.atlassianToken = '';
     this.showAtlassianModal = true;
+    this.updateBodyScrollLock();
+  }
+
+  closeAtlassianModal() {
+    this.showAtlassianModal = false;
+    this.updateBodyScrollLock();
   }
 
   submitAtlassianConnect() {
@@ -1025,7 +1073,7 @@ export class IntegrationsComponent implements OnInit {
       .subscribe({
         next: (res) => {
           this.connectingAtlassian = false;
-          this.showAtlassianModal = false;
+          this.closeAtlassianModal();
           this.showToast('success', res.message || 'Atlassian MCP Server connected successfully!');
           this.refreshAll();
         },
@@ -1034,6 +1082,22 @@ export class IntegrationsComponent implements OnInit {
           this.showToast('error', 'Connection failed: ' + (err.error?.detail || err.message));
         },
       });
+  }
+
+  private updateBodyScrollLock() {
+    if (typeof document !== 'undefined') {
+      if (this.showGithubModal || this.showAtlassianModal) {
+        document.body.style.overflow = 'hidden';
+      } else {
+        document.body.style.overflow = '';
+      }
+    }
+  }
+
+  ngOnDestroy() {
+    if (typeof document !== 'undefined') {
+      document.body.style.overflow = '';
+    }
   }
 
   disconnectServer(provider: string) {
