@@ -190,10 +190,10 @@ import { IconComponent } from '../../shared/components/icon.component';
         <div class="space-y-4">
           <div
             *ngFor="let a of coreAgents"
-            class="p-4 sm:p-5 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+            class="p-4 sm:p-5 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition-all flex flex-col xl:flex-row xl:items-center justify-between gap-4"
           >
             <!-- Agent Info (Left) -->
-            <div class="flex items-start gap-3.5 max-w-lg min-w-0">
+            <div class="flex items-start gap-3.5 min-w-0 flex-1">
               <div
                 class="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-base shrink-0 shadow-sm"
                 [ngClass]="a.badgeColor"
@@ -211,22 +211,22 @@ import { IconComponent } from '../../shared/components/icon.component';
             </div>
 
             <!-- Agent Model Assignment Controls (Right: Provider Icons + Model Selector + Save) -->
-            <div class="flex flex-wrap sm:flex-nowrap items-center gap-3 self-stretch lg:self-auto">
+            <div class="flex flex-wrap items-center gap-3 shrink-0">
               <!-- 1. Visual Provider Selector with Official Brand Icons -->
-              <div>
-                <label class="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wider">
+              <div class="flex flex-col gap-1">
+                <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                   Provider
-                </label>
-                <div class="flex items-center rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-1 shadow-2xs">
+                </span>
+                <div class="inline-flex items-center rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-1 shadow-2xs h-[38px]">
                   <!-- Gemini Option Button -->
                   <button
                     type="button"
                     (click)="setProvider(a.id, 'gemini')"
-                    class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                    class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer h-full"
                     [ngClass]="agentAssignments[a.id].provider === 'gemini' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'"
                     title="Select Google Gemini Provider"
                   >
-                    <app-icon name="google" size="14"></app-icon>
+                    <app-icon name="google" size="13"></app-icon>
                     <span>Gemini</span>
                   </button>
 
@@ -234,25 +234,25 @@ import { IconComponent } from '../../shared/components/icon.component';
                   <button
                     type="button"
                     (click)="setProvider(a.id, 'openai')"
-                    class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                    class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer h-full"
                     [ngClass]="agentAssignments[a.id].provider === 'openai' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'"
                     title="Select OpenAI Provider"
                   >
-                    <app-icon name="openai" size="14"></app-icon>
+                    <app-icon name="openai" size="13"></app-icon>
                     <span>OpenAI</span>
                   </button>
                 </div>
               </div>
 
               <!-- 2. Model Dropdown with Chip Icon -->
-              <div class="flex-1 sm:flex-initial">
-                <label class="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wider">
+              <div class="flex flex-col gap-1 min-w-[200px] sm:min-w-[240px]">
+                <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                   Model Endpoint
-                </label>
-                <div class="relative">
+                </span>
+                <div class="relative h-[38px]">
                   <select
                     [(ngModel)]="agentAssignments[a.id].model_id"
-                    class="w-full sm:w-[230px] pl-8 pr-8 py-2 text-xs font-mono font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 shadow-2xs focus:border-blue-500 outline-none appearance-none cursor-pointer"
+                    class="w-full h-full pl-8 pr-8 py-1.5 text-xs font-mono font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 shadow-2xs focus:border-blue-500 outline-none appearance-none cursor-pointer truncate"
                   >
                     <option
                       *ngFor="let m of getModelsForProvider(agentAssignments[a.id].provider)"
@@ -273,10 +273,13 @@ import { IconComponent } from '../../shared/components/icon.component';
               </div>
 
               <!-- 3. Save Button with Feedback -->
-              <div class="pt-5 shrink-0">
+              <div class="flex flex-col gap-1">
+                <span class="text-[10px] font-bold text-transparent select-none uppercase tracking-wider">
+                  Save
+                </span>
                 <button
                   (click)="saveAgentModel(a.id)"
-                  class="px-4 py-2 font-bold text-xs rounded-xl transition-all shadow-sm flex items-center gap-1.5"
+                  class="h-[38px] px-4 font-bold text-xs rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer shrink-0"
                   [ngClass]="savedState[a.id] ? 'bg-emerald-600 text-white' : 'bg-slate-900 hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-700 text-white'"
                 >
                   <app-icon [name]="savedState[a.id] ? 'check' : 'check-circle-2'" size="13"></app-icon>

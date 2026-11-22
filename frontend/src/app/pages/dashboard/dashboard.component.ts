@@ -32,19 +32,18 @@ import * as echarts from 'echarts';
             <span class="inline-block transform hover:rotate-12 transition-transform cursor-pointer">👋</span>
           </h1>
           <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5 truncate">
-            Your AI Testing Assistant is ready to help you build, test and deliver better software.
+            Autonomous AI software testing assistant and quality engineering platform.
           </p>
         </div>
 
-        <div class="flex items-center gap-3 shrink-0">
-          <div class="px-3.5 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/60 border border-purple-200/80 dark:border-purple-800 text-purple-700 dark:text-purple-300 text-xs font-bold flex items-center gap-2 shadow-2xs">
-            <app-icon name="crown" size="14" class="text-purple-600 dark:text-purple-400"></app-icon>
-            <span>Personal Workspace</span>
-          </div>
-          <div class="px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/80 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-semibold flex items-center gap-1.5">
-            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span>All Systems Online</span>
-          </div>
+        <div class="flex items-center gap-2.5 shrink-0">
+          <a
+            routerLink="/workflows"
+            class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-sm cursor-pointer"
+          >
+            <app-icon name="play" size="13"></app-icon>
+            <span>Start Test Run</span>
+          </a>
         </div>
       </div>
 
@@ -113,13 +112,23 @@ import * as echarts from 'echarts';
                   {{ displayProjects.length }}
                 </span>
               </div>
-              <a
-                routerLink="/projects"
-                class="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-              >
-                <span>View All</span>
-                <app-icon name="arrow-right" size="12"></app-icon>
-              </a>
+              <div class="flex items-center gap-3">
+                <button
+                  (click)="router.navigate(['/projects'], { queryParams: { action: 'new' } })"
+                  class="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1 cursor-pointer"
+                >
+                  <app-icon name="plus" size="13"></app-icon>
+                  <span>New Project</span>
+                </button>
+                <span class="text-slate-300 dark:text-slate-700">|</span>
+                <a
+                  routerLink="/projects"
+                  class="text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-1"
+                >
+                  <span>View All</span>
+                  <app-icon name="arrow-right" size="12"></app-icon>
+                </a>
+              </div>
             </div>
 
             <!-- Projects Grid (Actual Records) -->
@@ -147,10 +156,10 @@ import * as echarts from 'echarts';
                     </button>
                   </div>
 
-                  <h3 class="font-bold text-slate-900 dark:text-white text-sm group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
+                  <h3 class="font-bold text-slate-900 dark:text-white text-sm group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors line-clamp-2 min-h-[38px] leading-snug" [title]="proj.name">
                     {{ proj.name }}
                   </h3>
-                  <p class="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                  <p class="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5" [title]="proj.description || ''">
                     {{ proj.description || 'Automated QA testing workspace' }}
                   </p>
 
@@ -176,8 +185,9 @@ import * as echarts from 'echarts';
                 </div>
               </div>
 
-              <!-- Create New Project Card slot -->
+              <!-- Create New Project Card slot (Only shown if fewer than 4 projects exist to fill row) -->
               <div
+                *ngIf="displayProjects.length > 0 && displayProjects.length < 4"
                 (click)="router.navigate(['/projects'], { queryParams: { action: 'new' } })"
                 class="bg-white/60 dark:bg-slate-900/60 rounded-2xl p-4.5 border-2 border-dashed border-slate-300 dark:border-slate-800 hover:border-blue-500 dark:hover:border-blue-500 transition-all cursor-pointer flex flex-col items-center justify-center text-center group min-h-[160px]"
               >
@@ -503,45 +513,45 @@ import * as echarts from 'echarts';
               <a
                 routerLink="/agents"
                 [queryParams]="{ action: 'create' }"
-                class="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white p-3.5 rounded-xl font-bold text-xs flex flex-col justify-between shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all group min-h-[82px] min-w-0"
+                class="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white p-3.5 rounded-xl font-bold text-xs flex flex-col justify-between shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all group min-h-[86px] min-w-0"
               >
                 <div class="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
                   <app-icon name="plus" size="14" class="text-white"></app-icon>
                 </div>
-                <div class="leading-tight mt-2 text-white truncate w-full">Create New Agent</div>
+                <div class="leading-snug mt-2 text-white font-bold text-xs line-clamp-2">Create New Agent</div>
               </a>
 
               <!-- Button 2: Create Workflow -->
               <a
                 routerLink="/workflows"
-                class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white p-3.5 rounded-xl font-bold text-xs flex flex-col justify-between shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all group min-h-[82px] min-w-0"
+                class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white p-3.5 rounded-xl font-bold text-xs flex flex-col justify-between shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all group min-h-[86px] min-w-0"
               >
                 <div class="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
                   <app-icon name="workflow" size="14" class="text-white"></app-icon>
                 </div>
-                <div class="leading-tight mt-2 text-white truncate w-full">Create Workflow</div>
+                <div class="leading-snug mt-2 text-white font-bold text-xs line-clamp-2">Create Workflow</div>
               </a>
 
               <!-- Button 3: Run Testing Workflow -->
               <a
                 routerLink="/workflows"
-                class="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white p-3.5 rounded-xl font-bold text-xs flex flex-col justify-between shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all group min-h-[82px] min-w-0"
+                class="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white p-3.5 rounded-xl font-bold text-xs flex flex-col justify-between shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all group min-h-[86px] min-w-0"
               >
                 <div class="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
                   <app-icon name="play" size="14" class="text-white"></app-icon>
                 </div>
-                <div class="leading-tight mt-2 text-white truncate w-full">Run Testing Workflow</div>
+                <div class="leading-snug mt-2 text-white font-bold text-xs line-clamp-2">Run Testing Workflow</div>
               </a>
 
               <!-- Button 4: View Reports -->
               <a
                 routerLink="/reports"
-                class="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white p-3.5 rounded-xl font-bold text-xs flex flex-col justify-between shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all group min-h-[82px] min-w-0"
+                class="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white p-3.5 rounded-xl font-bold text-xs flex flex-col justify-between shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all group min-h-[86px] min-w-0"
               >
                 <div class="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
                   <app-icon name="bar-chart-3" size="14" class="text-white"></app-icon>
                 </div>
-                <div class="leading-tight mt-2 text-white truncate w-full">View Reports</div>
+                <div class="leading-snug mt-2 text-white font-bold text-xs line-clamp-2">View Reports</div>
               </a>
             </div>
           </div>

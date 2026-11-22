@@ -233,7 +233,7 @@ import { IconComponent } from '../../shared/components/icon.component';
           [class.p-1.5]="sidebarService.isCollapsed()"
           [class.justify-between]="!sidebarService.isCollapsed()"
           [class.justify-center]="sidebarService.isCollapsed()"
-          [title]="sidebarService.isCollapsed() ? 'System Online (All systems operational)' : ''"
+          [title]="sidebarService.isCollapsed() ? 'Engine Active (FastAPI & Playwright Ready)' : ''"
         >
           <div class="flex items-center gap-2 min-w-0">
             <span class="relative flex h-2 w-2 shrink-0">
@@ -241,8 +241,8 @@ import { IconComponent } from '../../shared/components/icon.component';
               <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
             <div *ngIf="!sidebarService.isCollapsed()" class="truncate">
-              <div class="text-[11px] font-bold text-white leading-none">System Online</div>
-              <div class="text-[9px] text-emerald-400 font-medium mt-0.5">All systems operational</div>
+              <div class="text-[11px] font-bold text-white leading-none">Engine Active</div>
+              <div class="text-[9px] text-emerald-400 font-medium mt-0.5">FastAPI & Playwright Ready</div>
             </div>
           </div>
           <span *ngIf="!sidebarService.isCollapsed()" class="text-emerald-400 text-xs font-mono shrink-0">∿</span>
@@ -255,7 +255,7 @@ import { IconComponent } from '../../shared/components/icon.component';
           [class.p-1.5]="sidebarService.isCollapsed()"
           [class.justify-between]="!sidebarService.isCollapsed()"
           [class.justify-center]="sidebarService.isCollapsed()"
-          [title]="sidebarService.isCollapsed() ? 'Aryan (Personal QA Workspace)' : ''"
+          [title]="sidebarService.isCollapsed() ? 'Aryan (QA Automation Lead)' : ''"
         >
           <div class="flex items-center gap-2 min-w-0">
             <div class="w-7 h-7 rounded-lg bg-gradient-to-tr from-indigo-600 to-purple-600 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-sm">
@@ -263,7 +263,7 @@ import { IconComponent } from '../../shared/components/icon.component';
             </div>
             <div *ngIf="!sidebarService.isCollapsed()" class="truncate">
               <div class="text-[11px] font-bold text-white leading-tight">Aryan</div>
-              <div class="text-[9px] text-slate-400 leading-tight">Personal Workspace</div>
+              <div class="text-[9px] text-slate-400 leading-tight">QA Automation Lead</div>
             </div>
           </div>
           <app-icon *ngIf="!sidebarService.isCollapsed()" name="chevron-down" size="12" class="text-slate-400 shrink-0"></app-icon>

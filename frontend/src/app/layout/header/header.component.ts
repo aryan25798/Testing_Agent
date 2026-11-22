@@ -54,7 +54,7 @@ import { IconComponent } from '../../shared/components/icon.component';
           </div>
           <div class="hidden md:block text-left">
             <div class="text-xs font-bold text-slate-800 dark:text-slate-100 leading-tight">Aryan</div>
-            <div class="text-[10px] font-medium text-slate-500 dark:text-slate-400">Personal QA Workspace</div>
+            <div class="text-[10px] font-medium text-slate-500 dark:text-slate-400">QA Lead Engineer</div>
           </div>
         </div>
       </div>
