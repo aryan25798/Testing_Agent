@@ -38,7 +38,7 @@ import { IconComponent } from '../../shared/components/icon.component';
             <div class="flex items-center justify-between mb-3">
               <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/70 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-base shadow-2xs border border-blue-200/60 dark:border-blue-900/60">
-                  <app-icon name="google" size="20"></app-icon>
+                  <app-icon name="gemini" size="20"></app-icon>
                 </div>
                 <div>
                   <h3 class="font-bold text-slate-900 dark:text-white text-sm">Google Gemini Engine</h3>
@@ -262,7 +262,7 @@ import { IconComponent } from '../../shared/components/icon.component';
                     [ngClass]="agentAssignments[a.id].provider === 'gemini' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'"
                     title="Select Google Gemini Provider"
                   >
-                    <app-icon name="google" size="13"></app-icon>
+                    <app-icon name="gemini" size="13"></app-icon>
                     <span>Gemini</span>
                   </button>
 

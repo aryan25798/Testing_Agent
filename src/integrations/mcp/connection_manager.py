@@ -68,7 +68,10 @@ class MCPConnectionManager:
         """Seeds initial MCPServerConnection rows in database if not already present."""
         try:
             with SessionLocal() as db:
-                gh = db.query(MCPServerConnection).filter(MCPServerConnection.provider == "github").first()
+                gh = db.query(MCPServerConnection).filter(
+                    MCPServerConnection.provider == "github",
+                    MCPServerConnection.server_name.like("%Official%")
+                ).first()
                 if not gh:
                     gh = MCPServerConnection(
                         provider="github",
@@ -81,7 +84,10 @@ class MCPConnectionManager:
                     )
                     db.add(gh)
 
-                atl = db.query(MCPServerConnection).filter(MCPServerConnection.provider == "atlassian").first()
+                atl = db.query(MCPServerConnection).filter(
+                    MCPServerConnection.provider == "atlassian",
+                    MCPServerConnection.server_name.like("%Official%")
+                ).first()
                 if not atl:
                     mcp_atlassian_exe = str(Path(sys.executable).parent / "mcp-atlassian.exe")
                     atl = MCPServerConnection(
@@ -103,7 +109,14 @@ class MCPConnectionManager:
     def get_server_status(self, provider: str) -> Dict[str, Any]:
         """Returns live connection and capability status for a provider."""
         with SessionLocal() as db:
-            server = db.query(MCPServerConnection).filter(MCPServerConnection.provider == provider.lower()).first()
+            server = (
+                db.query(MCPServerConnection)
+                .filter(MCPServerConnection.provider == provider.lower(), MCPServerConnection.server_name.like("%Official%"))
+                .first()
+                or db.query(MCPServerConnection)
+                .filter(MCPServerConnection.provider == provider.lower())
+                .first()
+            )
             if not server:
                 return {
                     "provider": provider.lower(),

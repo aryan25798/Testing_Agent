@@ -47,11 +47,11 @@ def test_mcp_servers_status_endpoint():
     assert "github" in providers
     assert "atlassian" in providers
 
-    gh = next(s for s in data if s["provider"] == "github")
+    gh = next(s for s in data if s["provider"] == "github" and "Official" in s.get("server_name", ""))
     assert gh["server_name"] == "Official GitHub MCP Server"
     assert gh["transport"] == "stdio"
 
-    atl = next(s for s in data if s["provider"] == "atlassian")
+    atl = next(s for s in data if s["provider"] == "atlassian" and "Official" in s.get("server_name", ""))
     assert atl["server_name"] == "Official Atlassian MCP Server"
 
 

@@ -198,60 +198,62 @@ def update_project_mcp_mapping(project_id: str, payload: ProjectMCPMappingReques
         # 1. GitHub Mapping
         if payload.github_repo:
             gh_server = db.query(MCPServerConnection).filter(MCPServerConnection.provider == "github").first()
-            if gh_server:
-                gh_mapping = (
-                    db.query(ProjectIntegrationMapping)
-                    .filter(
-                        ProjectIntegrationMapping.project_id == project_id,
-                        ProjectIntegrationMapping.provider == "github",
-                    )
-                    .first()
+            gh_server_id = gh_server.id if gh_server else "github-mcp-server"
+            gh_mapping = (
+                db.query(ProjectIntegrationMapping)
+                .filter(
+                    ProjectIntegrationMapping.project_id == project_id,
+                    ProjectIntegrationMapping.provider == "github",
                 )
-                if not gh_mapping:
-                    gh_mapping = ProjectIntegrationMapping(
-                        project_id=project_id,
-                        server_id=gh_server.id,
-                        provider="github",
-                        external_id=payload.github_repo,
-                    )
-                    db.add(gh_mapping)
+                .first()
+            )
+            if not gh_mapping:
+                gh_mapping = ProjectIntegrationMapping(
+                    project_id=project_id,
+                    server_id=gh_server_id,
+                    provider="github",
+                    external_id=payload.github_repo,
+                )
+                db.add(gh_mapping)
 
-                gh_mapping.external_id = payload.github_repo
-                gh_mapping.selected_resources = [payload.github_repo]
-                gh_mapping.default_branch = payload.github_branch or "main"
-                gh_mapping.status = "active"
+            gh_mapping.server_id = gh_server_id
+            gh_mapping.external_id = payload.github_repo
+            gh_mapping.selected_resources = [payload.github_repo]
+            gh_mapping.default_branch = payload.github_branch or "main"
+            gh_mapping.status = "active"
 
-                # Update project table for synchronization
-                proj.git_repo_url = f"https://github.com/{payload.github_repo}"
-                proj.git_branch = payload.github_branch or "main"
+            # Update project table for synchronization
+            proj.git_repo_url = f"https://github.com/{payload.github_repo}"
+            proj.git_branch = payload.github_branch or "main"
 
         # 2. Jira Mapping
         if payload.jira_host or payload.jira_project_keys:
             atl_server = db.query(MCPServerConnection).filter(MCPServerConnection.provider == "atlassian").first()
-            if atl_server:
-                atl_mapping = (
-                    db.query(ProjectIntegrationMapping)
-                    .filter(
-                        ProjectIntegrationMapping.project_id == project_id,
-                        ProjectIntegrationMapping.provider == "atlassian",
-                    )
-                    .first()
+            atl_server_id = atl_server.id if atl_server else "atlassian-mcp-server"
+            atl_mapping = (
+                db.query(ProjectIntegrationMapping)
+                .filter(
+                    ProjectIntegrationMapping.project_id == project_id,
+                    ProjectIntegrationMapping.provider == "atlassian",
                 )
-                if not atl_mapping:
-                    atl_mapping = ProjectIntegrationMapping(
-                        project_id=project_id,
-                        server_id=atl_server.id,
-                        provider="atlassian",
-                        external_id=payload.jira_host or atl_server.server_url or "https://atlassian.net",
-                    )
-                    db.add(atl_mapping)
+                .first()
+            )
+            if not atl_mapping:
+                atl_mapping = ProjectIntegrationMapping(
+                    project_id=project_id,
+                    server_id=atl_server_id,
+                    provider="atlassian",
+                    external_id=payload.jira_host or (atl_server.server_url if atl_server else "https://atlassian.net"),
+                )
+                db.add(atl_mapping)
 
-                atl_mapping.external_id = payload.jira_host or atl_server.server_url or "https://atlassian.net"
-                atl_mapping.selected_resources = payload.jira_project_keys
-                atl_mapping.status = "active"
+            atl_mapping.server_id = atl_server_id
+            atl_mapping.external_id = payload.jira_host or (atl_server.server_url if atl_server else "https://atlassian.net")
+            atl_mapping.selected_resources = payload.jira_project_keys
+            atl_mapping.status = "active"
 
-                if payload.jira_project_keys:
-                    proj.jira_project_key = payload.jira_project_keys[0]
+            if payload.jira_project_keys:
+                proj.jira_project_key = payload.jira_project_keys[0]
 
         db.commit()
 

@@ -260,7 +260,7 @@ import { LogoComponent } from '../../shared/components/logo.component';
               <div class="text-[9px] text-emerald-400 font-medium mt-0.5">FastAPI & Playwright Ready</div>
             </div>
           </div>
-          <span *ngIf="!sidebarService.isCollapsed()" class="text-emerald-400 text-xs font-mono shrink-0">∿</span>
+          <app-icon *ngIf="!sidebarService.isCollapsed()" name="activity" size="14" class="text-emerald-400 shrink-0"></app-icon>
         </div>
 
         <!-- User Profile Pill (matching target design, always visible at bottom) -->

@@ -29,7 +29,6 @@ import * as echarts from 'echarts';
         <div class="min-w-0 flex-1">
           <h1 class="text-xl sm:text-2xl lg:text-3xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2 break-words">
             <span>Welcome back, Aryan!</span>
-            <span class="inline-block transform hover:rotate-12 transition-transform cursor-pointer">👋</span>
           </h1>
           <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5 break-words">
             Autonomous AI software testing agent and quality engineering platform.
@@ -87,17 +86,49 @@ import * as echarts from 'echarts';
               </div>
             </div>
 
-            <!-- Right Column: 3D Robot Mascot (Cleanly separated in dedicated column, never overlapping) -->
-            <div class="shrink-0 flex items-center justify-center self-center md:self-auto z-10">
-              <div class="relative w-28 h-28 sm:w-36 sm:h-36 md:w-40 md:h-40 flex items-center justify-center">
-                <img
-                  src="/qa_robot_assistant.jpg"
-                  alt="AI QA Mascot"
-                  class="w-full h-full object-contain rounded-2xl drop-shadow-2xl border border-white/20 transform rotate-[-2deg]"
-                  (error)="onImgError($event)"
-                />
-                <div class="absolute -top-1 -left-1 bg-indigo-500/95 backdrop-blur-md text-white text-[10px] font-mono font-bold px-2 py-0.5 rounded-md border border-white/20 shadow-lg pointer-events-none">
-                  &lt;/&gt;
+            <!-- Right Column: Autonomous Quality Engine Telemetry Panel (Precision SaaS Visual) -->
+            <div class="shrink-0 flex items-center justify-center self-center md:self-auto z-10 w-full md:w-auto">
+              <div class="w-full sm:w-80 md:w-72 bg-slate-950/70 border border-white/15 rounded-2xl p-4 shadow-2xl backdrop-blur-md flex flex-col justify-between space-y-3">
+                <!-- Top Status Header -->
+                <div class="flex items-center justify-between border-b border-white/10 pb-2.5">
+                  <div class="flex items-center gap-2">
+                    <span class="relative flex h-2 w-2">
+                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    <span class="text-[11px] font-mono font-bold tracking-wider text-emerald-400 uppercase">Engine Live</span>
+                  </div>
+                  <span class="text-[10px] font-mono bg-blue-500/20 text-blue-300 border border-blue-400/30 px-2 py-0.5 rounded-md">
+                    LangGraph 6-Node
+                  </span>
+                </div>
+
+                <!-- 3-Stage Pipeline Diagram -->
+                <div class="grid grid-cols-3 gap-2 text-center py-1">
+                  <div class="bg-white/5 border border-white/10 rounded-xl p-2 flex flex-col items-center">
+                    <app-icon name="file-text" size="16" class="text-sky-400 mb-1"></app-icon>
+                    <span class="text-[10px] font-bold text-white leading-tight">Ingest</span>
+                    <span class="text-[8px] text-slate-400 font-mono mt-0.5">Jira / MCP</span>
+                  </div>
+                  <div class="bg-white/5 border border-white/10 rounded-xl p-2 flex flex-col items-center">
+                    <app-icon name="layers" size="16" class="text-indigo-400 mb-1"></app-icon>
+                    <span class="text-[10px] font-bold text-white leading-tight">Synthesize</span>
+                    <span class="text-[8px] text-slate-400 font-mono mt-0.5">Scenarios</span>
+                  </div>
+                  <div class="bg-white/5 border border-white/10 rounded-xl p-2 flex flex-col items-center">
+                    <app-icon name="terminal" size="16" class="text-emerald-400 mb-1"></app-icon>
+                    <span class="text-[10px] font-bold text-white leading-tight">Execute</span>
+                    <span class="text-[8px] text-slate-400 font-mono mt-0.5">Playwright</span>
+                  </div>
+                </div>
+
+                <!-- Bottom Telemetry Metric -->
+                <div class="flex items-center justify-between text-[11px] bg-white/5 rounded-xl px-3 py-2 border border-white/10">
+                  <div class="flex items-center gap-1.5 text-slate-300 font-medium">
+                    <app-icon name="shield-check" size="14" class="text-emerald-400"></app-icon>
+                    <span>Quality Gate</span>
+                  </div>
+                  <span class="font-mono font-bold text-emerald-400 text-xs">ENFORCED</span>
                 </div>
               </div>
             </div>
@@ -144,7 +175,7 @@ import * as echarts from 'echarts';
                 <div class="min-w-0">
                   <div class="flex items-start justify-between mb-3">
                     <div
-                      class="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-base shadow-sm shrink-0"
+                      class="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-base shadow-sm shrink-0"
                       [ngClass]="getProjectColorClass(i)"
                     >
                       <app-icon [name]="getProjectIcon(i)" size="18"></app-icon>
@@ -439,7 +470,7 @@ import * as echarts from 'echarts';
                 >
                   <div class="flex items-center gap-2.5 min-w-0">
                     <div class="w-8 h-8 rounded-lg bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center font-bold text-blue-600 dark:text-blue-400 text-sm shadow-2xs shrink-0">
-                      <app-icon name="google" size="16"></app-icon>
+                      <app-icon name="gemini" size="18"></app-icon>
                     </div>
                     <div class="min-w-0">
                       <div class="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">Gemini</div>
@@ -485,7 +516,7 @@ import * as echarts from 'echarts';
 
               <!-- Info Tip -->
               <div class="mt-3 text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                <span class="text-blue-500 font-bold">ℹ</span>
+                <app-icon name="info" size="13" class="text-blue-500 shrink-0"></app-icon>
                 <span>Choose your preferred models anytime!</span>
               </div>
             </div>
@@ -494,7 +525,7 @@ import * as echarts from 'echarts';
           <!-- 2. QUICK ACTIONS (2x2 Grid) -->
           <div class="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-subtle space-y-3.5 transition-colors min-w-0">
             <div class="flex items-center gap-2">
-              <span class="text-amber-500 font-bold text-sm">⚡</span>
+              <app-icon name="zap" size="16" class="text-amber-500 shrink-0"></app-icon>
               <h3 class="font-bold text-slate-900 dark:text-white text-sm">Quick Actions</h3>
             </div>
 
@@ -710,17 +741,20 @@ export class DashboardComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   getProjectColorClass(index: number): string {
-    const colors = [
-      'bg-gradient-to-tr from-purple-600 to-indigo-600',
-      'bg-gradient-to-tr from-blue-600 to-cyan-600',
-      'bg-gradient-to-tr from-rose-500 to-pink-600',
-      'bg-gradient-to-tr from-sky-500 to-blue-500',
+    const themes = [
+      'bg-blue-600/10 text-blue-600 dark:text-blue-400 border border-blue-500/20',
+      'bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20',
+      'bg-sky-600/10 text-sky-600 dark:text-sky-400 border border-sky-500/20',
+      'bg-emerald-600/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20',
     ];
-    return colors[index % colors.length];
+    return themes[index % themes.length];
   }
 
   getProjectIcon(index: number): string {
-    const icons = ['folder', 'landmark', 'heart', 'plane'];
+    const proj = this.displayProjects[index];
+    if (proj?.framework === 'playwright') return 'terminal';
+    if (proj?.framework === 'selenium') return 'code-2';
+    const icons = ['folder-git-2', 'layers', 'terminal', 'shield-check', 'code-2', 'cpu'];
     return icons[index % icons.length];
   }
 
