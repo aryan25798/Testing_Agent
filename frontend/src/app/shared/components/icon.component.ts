@@ -333,6 +333,21 @@ import { CommonModule } from '@angular/common';
         <path d="M3 5v14a9 3 0 0 0 18 0V5" />
         <path d="M3 12a9 3 0 0 0 18 0" />
       </g>
+
+      <!-- Network / MCP Integration Center -->
+      <g *ngSwitchCase="'network'">
+        <rect x="16" y="16" width="6" height="6" rx="1" />
+        <rect x="2" y="16" width="6" height="6" rx="1" />
+        <rect x="9" y="2" width="6" height="6" rx="1" />
+        <path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3" />
+        <path d="M12 12V8" />
+      </g>
+
+      <!-- Rotate CCW / Refresh -->
+      <g *ngSwitchCase="'rotate-ccw'">
+        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+        <path d="M3 3v5h5" />
+      </g>
     </svg>
   `,
 })

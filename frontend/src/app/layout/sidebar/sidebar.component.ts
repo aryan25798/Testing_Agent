@@ -204,6 +204,22 @@ import { IconComponent } from '../../shared/components/icon.component';
         </a>
 
         <a
+          routerLink="/integrations"
+          routerLinkActive="bg-blue-600 text-white font-semibold shadow-glow-blue"
+          (click)="onNavigate()"
+          [title]="sidebarService.isCollapsed() ? 'MCP Integrations' : ''"
+          class="flex items-center rounded-xl text-slate-300 hover:text-white hover:bg-slate-800/60 transition-all text-xs group"
+          [class.gap-3.5]="!sidebarService.isCollapsed()"
+          [class.px-3.5]="!sidebarService.isCollapsed()"
+          [class.py-2.5]="!sidebarService.isCollapsed()"
+          [class.justify-center]="sidebarService.isCollapsed()"
+          [class.p-3]="sidebarService.isCollapsed()"
+        >
+          <app-icon name="network" size="18" class="shrink-0"></app-icon>
+          <span *ngIf="!sidebarService.isCollapsed()" class="truncate font-medium">MCP Integrations</span>
+        </a>
+
+        <a
           routerLink="/settings"
           routerLinkActive="bg-blue-600 text-white font-semibold shadow-glow-blue"
           (click)="onNavigate()"

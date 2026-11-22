@@ -11,6 +11,11 @@ import {
   CustomAgent,
   ModelInfo,
   DashboardOverview,
+  MCPServerStatus,
+  MCPToolInfo,
+  ProjectMCPMapping,
+  MCPApprovalRequest,
+  MCPInvocationLog,
 } from '../models/types';
 
 @Injectable({
@@ -194,5 +199,71 @@ export class ApiService {
     const formData = new FormData();
     formData.append('file', file);
     return this.http.post<any>(`${this.baseUrl}/integrations/upload`, formData);
+  }
+
+  // Model Context Protocol (MCP) Integration Endpoints
+  getMcpServers(): Observable<MCPServerStatus[]> {
+    return this.http.get<MCPServerStatus[]>(`${this.baseUrl}/mcp/servers`);
+  }
+
+  connectMcpGithub(payload: { personal_access_token?: string; read_only?: boolean }): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/mcp/github/connect`, payload);
+  }
+
+  connectMcpAtlassian(payload: {
+    transport?: string;
+    server_url?: string;
+    email?: string;
+    api_token?: string;
+    read_only?: boolean;
+  }): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/mcp/atlassian/connect`, payload);
+  }
+
+  disconnectMcpServer(serverId: string): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/mcp/disconnect/${serverId}`, {});
+  }
+
+  getMcpTools(provider?: string): Observable<MCPToolInfo[]> {
+    let params = new HttpParams();
+    if (provider) params = params.set('provider', provider);
+    return this.http.get<MCPToolInfo[]>(`${this.baseUrl}/mcp/tools`, { params });
+  }
+
+  getMcpGithubRepos(): Observable<Array<{ name: string; full_name: string; private: boolean; default_branch: string }>> {
+    return this.http.get<Array<{ name: string; full_name: string; private: boolean; default_branch: string }>>(
+      `${this.baseUrl}/mcp/github/repositories`
+    );
+  }
+
+  getMcpJiraProjects(): Observable<Array<{ id: string; key: string; name: string }>> {
+    return this.http.get<Array<{ id: string; key: string; name: string }>>(
+      `${this.baseUrl}/mcp/jira/projects`
+    );
+  }
+
+  getProjectMcpMapping(projectId: string, provider: string): Observable<ProjectMCPMapping> {
+    const params = new HttpParams().set('provider', provider);
+    return this.http.get<ProjectMCPMapping>(`${this.baseUrl}/mcp/projects/${projectId}/mapping`, { params });
+  }
+
+  saveProjectMcpMapping(projectId: string, payload: Partial<ProjectMCPMapping>): Observable<ProjectMCPMapping> {
+    return this.http.post<ProjectMCPMapping>(`${this.baseUrl}/mcp/projects/${projectId}/mapping`, payload);
+  }
+
+  getPendingMcpApprovals(projectId?: string): Observable<MCPApprovalRequest[]> {
+    let params = new HttpParams();
+    if (projectId) params = params.set('project_id', projectId);
+    return this.http.get<MCPApprovalRequest[]>(`${this.baseUrl}/mcp/approvals/pending`, { params });
+  }
+
+  decideMcpApproval(approvalId: string, decision: 'approved' | 'rejected', notes?: string): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/mcp/approvals/${approvalId}/decision`, { decision, notes });
+  }
+
+  getMcpLogs(limit: number = 50, projectId?: string): Observable<MCPInvocationLog[]> {
+    let params = new HttpParams().set('limit', limit.toString());
+    if (projectId) params = params.set('project_id', projectId);
+    return this.http.get<MCPInvocationLog[]>(`${this.baseUrl}/mcp/logs`, { params });
   }
 }

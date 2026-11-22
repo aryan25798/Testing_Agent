@@ -46,6 +46,7 @@ class Project(Base):
     executions = relationship("TestExecution", back_populates="project", cascade="all, delete-orphan")
     approvals = relationship("ApprovalRequest", back_populates="project", cascade="all, delete-orphan")
     agent_executions = relationship("AgentExecution", back_populates="project", cascade="all, delete-orphan")
+    integration_mappings = relationship("ProjectIntegrationMapping", back_populates="project", cascade="all, delete-orphan")
 
 
 class Requirement(Base):
@@ -267,3 +268,103 @@ class CustomAgent(Base):
     model_id = Column(String(100), default="gemini-2.5-flash")
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+# --- MCP (Model Context Protocol) Entities ---
+
+class MCPServerConnection(Base):
+    __tablename__ = "mcp_server_connections"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    provider = Column(String(50), nullable=False)           # github | atlassian
+    server_name = Column(String(255), nullable=False)       # "Official GitHub MCP Server", "Atlassian Remote MCP Server"
+    transport = Column(String(50), default="stdio")         # stdio | sse | streamable-http
+    server_url = Column(String(500), nullable=True)         # Remote URL e.g. https://mcp.atlassian.com/v2/mcp
+    command = Column(Text, nullable=True)                   # Local command array or binary path
+    auth_type = Column(String(50), default="pat")           # pat | oauth2 | token
+    account_login = Column(String(255), nullable=True)      # e.g. "aryan25798" or "aryan@company.com"
+    account_name = Column(String(255), nullable=True)       # Display Name
+    status = Column(String(50), default="disconnected")     # connected | disconnected | error | connecting
+    is_read_only = Column(Boolean, default=True)            # Enforce read-only by default
+    capabilities = Column(JSON, default=dict)               # Negotiated capabilities
+    last_connected_at = Column(DateTime, nullable=True)
+    last_error = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    tools = relationship("MCPDiscoveredTool", back_populates="server", cascade="all, delete-orphan")
+    mappings = relationship("ProjectIntegrationMapping", back_populates="server", cascade="all, delete-orphan")
+
+
+class MCPDiscoveredTool(Base):
+    __tablename__ = "mcp_discovered_tools"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    server_id = Column(String(36), ForeignKey("mcp_server_connections.id"), nullable=False)
+    tool_name = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    input_schema = Column(JSON, default=dict)
+    is_read_only = Column(Boolean, default=True)
+    allowed_agents = Column(JSON, default=list)             # List of agent IDs allowed to invoke this tool
+    risk_level = Column(String(50), default="low")          # low | medium | high | critical
+    discovered_at = Column(DateTime, default=datetime.utcnow)
+
+    server = relationship("MCPServerConnection", back_populates="tools")
+
+
+class ProjectIntegrationMapping(Base):
+    __tablename__ = "project_integration_mappings"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    project_id = Column(String(36), ForeignKey("projects.id"), nullable=False)
+    server_id = Column(String(36), ForeignKey("mcp_server_connections.id"), nullable=False)
+    provider = Column(String(50), nullable=False)           # github | atlassian
+    external_id = Column(String(255), nullable=False)       # e.g. "owner/repo" or "https://domain.atlassian.net"
+    selected_resources = Column(JSON, default=list)         # List of repo slugs or Jira project keys
+    default_branch = Column(String(100), default="main")
+    status = Column(String(50), default="active")           # active | error | paused
+    last_synced_at = Column(DateTime, nullable=True)
+    last_error = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    project = relationship("Project", back_populates="integration_mappings")
+    server = relationship("MCPServerConnection", back_populates="mappings")
+
+
+class MCPToolInvocationLog(Base):
+    __tablename__ = "mcp_tool_invocation_logs"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    server_id = Column(String(36), nullable=False)
+    project_id = Column(String(36), nullable=True)
+    agent_id = Column(String(100), nullable=False)
+    tool_name = Column(String(255), nullable=False)
+    operation_type = Column(String(50), default="read")     # read | write
+    arguments_summary = Column(JSON, default=dict)          # Sanitized arguments without secrets
+    status = Column(String(50), default="success")          # success | failed | rejected
+    duration_seconds = Column(Float, default=0.0)
+    approval_id = Column(String(36), nullable=True)
+    error_message = Column(Text, nullable=True)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+
+
+class MCPApprovalRequest(Base):
+    __tablename__ = "mcp_approval_requests"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    project_id = Column(String(36), ForeignKey("projects.id"), nullable=False)
+    provider = Column(String(50), nullable=False)           # github | atlassian
+    agent_id = Column(String(100), nullable=False)
+    tool_name = Column(String(255), nullable=False)
+    arguments = Column(JSON, default=dict)
+    target_object = Column(String(255), nullable=False)     # e.g. "repo: aryan25798/app branch: feature/qa"
+    operation_description = Column(Text, nullable=False)
+    proposed_diff = Column(Text, nullable=True)
+    risk_level = Column(String(50), default="medium")       # low | medium | high | critical
+    status = Column(String(50), default="pending")          # pending | approved | rejected | expired
+    decided_by = Column(String(100), nullable=True)
+    decision_reason = Column(Text, nullable=True)
+    decided_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+

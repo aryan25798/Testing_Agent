@@ -52,6 +52,11 @@ export const routes: Routes = [
       import('./pages/model-settings/model-settings.component').then((m) => m.ModelSettingsComponent),
   },
   {
+    path: 'integrations',
+    loadComponent: () =>
+      import('./pages/integrations/integrations.component').then((m) => m.IntegrationsComponent),
+  },
+  {
     path: 'settings',
     loadComponent: () =>
       import('./pages/settings/settings.component').then((m) => m.SettingsComponent),

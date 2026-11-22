@@ -1,21 +1,31 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
 import { IconComponent } from '../../shared/components/icon.component';
 
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent],
+  imports: [CommonModule, FormsModule, RouterLink, IconComponent],
   template: `
     <div class="space-y-8 max-w-7xl mx-auto pb-12">
       <!-- Header -->
-      <div>
-        <h1 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">System Integrations & Settings</h1>
-        <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-          Connect your Jira cloud workspace, GitHub repository tokens, and inspect local SQLite database diagnostics.
-        </p>
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">System Integrations & Settings</h1>
+          <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+            Manage your developer workspace configurations, local database diagnostics, and Model Context Protocol (MCP) integrations.
+          </p>
+        </div>
+        <a
+          routerLink="/integrations"
+          class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-glow-blue transition-all"
+        >
+          <app-icon name="network" size="16"></app-icon>
+          <span>Open MCP Integration Center</span>
+        </a>
       </div>
 
       <!-- Integrations Grid -->

@@ -36,10 +36,32 @@ report_agent = OrchestrationReportingAgent()
 
 def requirement_node(state: TestingWorkflowState) -> Dict[str, Any]:
     logger.info("Executing Agent 1: Requirement Analysis...")
+    raw_text = state["raw_input_text"]
+    source_type = state.get("source_type", "manual")
+
+    if source_type == "jira" and state.get("project_id"):
+        try:
+            import asyncio
+            from src.integrations.mcp.mcp_agent_client import mcp_agent_client
+            jira_data = asyncio.run(mcp_agent_client.get_jira_issues(state["project_id"]))
+            if jira_data:
+                raw_text = "JIRA USER STORIES VIA ATLASSIAN MCP:\n" + "\n".join([str(item.get("raw_content")) for item in jira_data])
+        except Exception as e:
+            logger.warning(f"Could not fetch from Jira MCP: {e}. Falling back to provided raw text.")
+    elif source_type == "git" and state.get("project_id"):
+        try:
+            import asyncio
+            from src.integrations.mcp.mcp_agent_client import mcp_agent_client
+            git_data = asyncio.run(mcp_agent_client.get_github_file(state["project_id"], "README.md"))
+            if git_data:
+                raw_text = f"GITHUB SPECIFICATION VIA GITHUB MCP:\n{git_data}"
+        except Exception as e:
+            logger.warning(f"Could not fetch from GitHub MCP: {e}. Falling back to provided raw text.")
+
     inp = RequirementAnalysisInput(
-        raw_text=state["raw_input_text"],
+        raw_text=raw_text,
         title="Project Requirements",
-        source_type=state.get("source_type", "manual"),
+        source_type=source_type,
     )
     result = req_agent.run(inp, project_id=state["project_id"])
     reqs_dicts = [r.model_dump() for r in result.requirements]

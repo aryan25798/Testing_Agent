@@ -202,3 +202,66 @@ export interface DashboardOverview {
     timestamp: string;
   }>;
 }
+
+export interface MCPServerStatus {
+  provider: 'github' | 'atlassian';
+  server_name: string;
+  transport: string;
+  server_url: string;
+  account_login: string;
+  account_name: string;
+  status: 'connected' | 'disconnected' | 'error' | 'connecting';
+  is_read_only: boolean;
+  available_tools_count: number;
+  last_connected_at?: string;
+  last_error?: string;
+}
+
+export interface MCPToolInfo {
+  id: string;
+  server_id: string;
+  tool_name: string;
+  description: string;
+  input_schema: any;
+  is_read_only: boolean;
+  allowed_agents: string[];
+  risk_level: string;
+}
+
+export interface ProjectMCPMapping {
+  id?: string;
+  project_id: string;
+  provider: string;
+  external_id: string;
+  selected_resources: string[];
+  default_branch: string;
+  status: string;
+  last_synced_at?: string;
+  last_error?: string;
+}
+
+export interface MCPApprovalRequest {
+  id: string;
+  project_id: string;
+  provider: string;
+  agent_id: string;
+  tool_name: string;
+  target_object: string;
+  operation_description: string;
+  proposed_diff?: string;
+  risk_level: string;
+  status: 'pending' | 'approved' | 'rejected';
+  requested_at: string;
+}
+
+export interface MCPInvocationLog {
+  id: string;
+  server_id: string;
+  project_id?: string;
+  agent_id: string;
+  tool_name: string;
+  status: 'success' | 'error' | 'blocked';
+  duration_ms: number;
+  error_message?: string;
+  invoked_at: string;
+}
