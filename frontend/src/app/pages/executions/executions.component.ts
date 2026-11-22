@@ -115,9 +115,20 @@ import { IconComponent } from '../../shared/components/icon.component';
               <span class="font-mono text-xs font-bold text-blue-600 dark:text-blue-400">{{ selectedExecution.execution_key }}</span>
               <h3 class="font-bold text-slate-900 dark:text-white text-sm mt-0.5">Execution Details</h3>
             </div>
-            <button (click)="selectedExecution = null" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
-              <app-icon name="x" size="18"></app-icon>
-            </button>
+            <div class="flex items-center gap-2">
+              <a
+                [href]="downloadJunitXmlUrl(selectedExecution.id)"
+                target="_blank"
+                class="px-2.5 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/60 rounded-lg border border-emerald-200 dark:border-emerald-800 flex items-center gap-1.5 transition-colors"
+                title="Download JUnit XML for CI/CD"
+              >
+                <app-icon name="download" size="14"></app-icon>
+                <span>Export JUnit XML</span>
+              </a>
+              <button (click)="selectedExecution = null" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                <app-icon name="x" size="18"></app-icon>
+              </button>
+            </div>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
@@ -205,5 +216,9 @@ export class ExecutionsComponent implements OnInit {
       next: (full) => (this.selectedExecution = full),
       error: () => (this.selectedExecution = ex),
     });
+  }
+
+  downloadJunitXmlUrl(executionId: string): string {
+    return this.api.downloadJunitXmlUrl(executionId);
   }
 }

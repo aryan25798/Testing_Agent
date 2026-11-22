@@ -103,6 +103,10 @@ export class ApiService {
     return this.http.get<TestExecution>(`${this.baseUrl}/executions/${executionId}`);
   }
 
+  downloadJunitXmlUrl(executionId: string): string {
+    return `${this.baseUrl}/executions/${executionId}/export-junit`;
+  }
+
   // AI Models & Agent Routing
   getModels(): Observable<ModelInfo[]> {
     return this.http.get<ModelInfo[]>(`${this.baseUrl}/models`);
@@ -172,6 +176,10 @@ export class ApiService {
 
   getCsvReportUrl(projectId: string): string {
     return `${this.baseUrl}/workflows/project/${projectId}/report/csv`;
+  }
+
+  getWorkflowStreamUrl(projectId: string): string {
+    return `${this.baseUrl}/workflows/project/${projectId}/stream`;
   }
 
   // Integrations

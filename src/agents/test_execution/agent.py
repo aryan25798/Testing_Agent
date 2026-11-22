@@ -11,6 +11,7 @@ import subprocess
 import tempfile
 import sys
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Optional, Dict, Any, Tuple
 from pydantic import BaseModel, Field
 from src.agents.base.base_agent import BaseAgent
@@ -78,6 +79,48 @@ class TestExecutionAgent(BaseAgent):
             system_instructions=SYSTEM_INSTRUCTIONS,
         )
 
+    def _execute_single_target(self, target: ExecutionTarget, base_url: str) -> SingleTestResult:
+        """Executes a single test target and classifies result."""
+        test_start = time.time()
+        try:
+            res = self._execute_script_isolated(target.code_content, base_url)
+            duration = round(time.time() - test_start, 2)
+
+            if res["exit_code"] == 0:
+                return SingleTestResult(
+                    test_case_key=target.test_case_key,
+                    test_title=target.title,
+                    status="Passed",
+                    duration_seconds=duration,
+                    log_output=res["stdout"],
+                )
+            else:
+                classification, fix = self._classify_failure(res["stderr"] or res["stdout"])
+                return SingleTestResult(
+                    test_case_key=target.test_case_key,
+                    test_title=target.title,
+                    status="Failed",
+                    failing_step="Automated Assertion Step",
+                    expected_result="Element/Response matches expected assertion state",
+                    actual_result=res["stderr"][:200] if res["stderr"] else "Assertion failed",
+                    error_message=res["stderr"] or res["stdout"],
+                    failure_classification=classification,
+                    suggested_fix=fix,
+                    duration_seconds=duration,
+                    log_output=res["stdout"],
+                )
+        except Exception as e:
+            duration = round(time.time() - test_start, 2)
+            return SingleTestResult(
+                test_case_key=target.test_case_key,
+                test_title=target.title,
+                status="Error",
+                error_message=str(e),
+                failure_classification="EnvironmentIssue",
+                suggested_fix="Verify python interpreter and browser dependencies in runner environment.",
+                duration_seconds=duration,
+            )
+
     def run(
         self,
         targets: List[ExecutionTarget],
@@ -85,6 +128,8 @@ class TestExecutionAgent(BaseAgent):
         target_env: str = "QA",
         base_url: str = "http://127.0.0.1:8000",
         project_id: Optional[str] = None,
+        parallel: bool = True,
+        max_workers: int = 4,
     ) -> ExecutionReportOutput:
         start_time = time.time()
         execution_key = f"RUN-{int(time.time())}"
@@ -94,59 +139,39 @@ class TestExecutionAgent(BaseAgent):
         failed_count = 0
         skipped_count = 0
 
-        logger.info(f"Starting test execution run {execution_key} for {len(targets)} tests.")
+        logger.info(f"Starting test execution run {execution_key} for {len(targets)} tests (parallel={parallel}, workers={max_workers}).")
 
-        for target in targets:
-            test_start = time.time()
-            try:
-                # Execute in an isolated Python subprocess
-                res = self._execute_script_isolated(target.code_content, base_url)
-                duration = round(time.time() - test_start, 2)
+        if parallel and len(targets) > 1:
+            workers = min(max_workers, len(targets))
+            logger.info(f"Executing {len(targets)} tests across {workers} parallel worker threads.")
+            with ThreadPoolExecutor(max_workers=workers) as executor:
+                future_to_target = {
+                    executor.submit(self._execute_single_target, target, base_url): target
+                    for target in targets
+                }
+                for future in as_completed(future_to_target):
+                    single_res = future.result()
+                    results.append(single_res)
+                    if single_res.status == "Passed":
+                        passed_count += 1
+                    elif single_res.status in ("Failed", "Error"):
+                        failed_count += 1
+                    elif single_res.status == "Skipped":
+                        skipped_count += 1
 
-                if res["exit_code"] == 0:
+            # Preserve original target order
+            target_order = {t.test_case_key: idx for idx, t in enumerate(targets)}
+            results.sort(key=lambda r: target_order.get(r.test_case_key, 999))
+        else:
+            for target in targets:
+                single_res = self._execute_single_target(target, base_url)
+                results.append(single_res)
+                if single_res.status == "Passed":
                     passed_count += 1
-                    results.append(
-                        SingleTestResult(
-                            test_case_key=target.test_case_key,
-                            test_title=target.title,
-                            status="Passed",
-                            duration_seconds=duration,
-                            log_output=res["stdout"],
-                        )
-                    )
-                else:
+                elif single_res.status in ("Failed", "Error"):
                     failed_count += 1
-                    # Classify failure
-                    classification, fix = self._classify_failure(res["stderr"] or res["stdout"])
-                    results.append(
-                        SingleTestResult(
-                            test_case_key=target.test_case_key,
-                            test_title=target.title,
-                            status="Failed",
-                            failing_step="Automated Assertion Step",
-                            expected_result="Element/Response matches expected assertion state",
-                            actual_result=res["stderr"][:200] if res["stderr"] else "Assertion failed",
-                            error_message=res["stderr"] or res["stdout"],
-                            failure_classification=classification,
-                            suggested_fix=fix,
-                            duration_seconds=duration,
-                            log_output=res["stdout"],
-                        )
-                    )
-            except Exception as e:
-                failed_count += 1
-                duration = round(time.time() - test_start, 2)
-                results.append(
-                    SingleTestResult(
-                        test_case_key=target.test_case_key,
-                        test_title=target.title,
-                        status="Error",
-                        error_message=str(e),
-                        failure_classification="EnvironmentIssue",
-                        suggested_fix="Verify python interpreter and browser dependencies in runner environment.",
-                        duration_seconds=duration,
-                    )
-                )
+                elif single_res.status == "Skipped":
+                    skipped_count += 1
 
         total_duration = round(time.time() - start_time, 2)
 

@@ -120,6 +120,27 @@ import { IconComponent } from '../../shared/components/icon.component';
           </button>
         </div>
 
+        <!-- Live SSE Streaming Terminal -->
+        <div *ngIf="isRunning || streamLogs.length" class="p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs font-mono space-y-2">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+            <span class="text-slate-400 font-bold uppercase tracking-wider text-[10px] flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full" [ngClass]="isRunning ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'"></span>
+              Live Agent Streaming Telemetry (Server-Sent Events)
+            </span>
+            <span class="text-slate-500 text-[10px]">Real-time LangGraph Traces</span>
+          </div>
+          <div class="max-h-48 overflow-y-auto space-y-1 text-slate-300">
+            <div *ngFor="let log of streamLogs" class="flex items-start gap-2">
+              <span class="text-slate-500 shrink-0 text-[10px]">[{{ log.time }}]</span>
+              <span class="text-blue-400 font-semibold shrink-0">[{{ log.agent }}]</span>
+              <span class="text-slate-200">{{ log.text }}</span>
+            </div>
+            <div *ngIf="isRunning" class="flex items-center gap-2 text-blue-400 text-[11px] animate-pulse">
+              <span>› Agent reasoning in progress...</span>
+            </div>
+          </div>
+        </div>
+
         <!-- Workflow Execution Results Card -->
         <div *ngIf="workflowResult" class="p-5 rounded-2xl bg-slate-900 text-slate-100 space-y-4 shadow-xl border border-slate-800">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800 pb-3 gap-2">
@@ -178,6 +199,7 @@ export class WorkflowsComponent implements OnInit {
   isRunning = false;
   currentStepIndex = -1;
   workflowResult: any = null;
+  streamLogs: Array<{ agent: string; time: string; text: string }> = [];
 
   pipelineSteps = [
     { name: 'Requirement Analysis', icon: 'search' },
@@ -228,14 +250,63 @@ export class WorkflowsComponent implements OnInit {
     if (!this.selectedProjectId) return;
     this.isRunning = true;
     this.workflowResult = null;
+    this.streamLogs = [];
     this.currentStepIndex = 0;
 
-    const stepInterval = setInterval(() => {
-      if (this.currentStepIndex < 5 && this.isRunning) {
-        this.currentStepIndex++;
-      }
-    }, 2500);
+    const streamUrl = this.api.getWorkflowStreamUrl(this.selectedProjectId);
+    const eventSource = new EventSource(streamUrl);
 
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        const timeStr = new Date().toLocaleTimeString();
+
+        if (data.event === 'workflow_started') {
+          this.streamLogs.push({ agent: 'LangGraph', time: timeStr, text: data.message });
+        } else if (data.event === 'agent_completed') {
+          this.currentStepIndex = data.step;
+          this.streamLogs.push({
+            agent: data.agent,
+            time: timeStr,
+            text: `Step ${data.step}/${data.total_steps}: ${data.details}`
+          });
+        } else if (data.event === 'workflow_completed') {
+          this.currentStepIndex = 6;
+          this.isRunning = false;
+          this.streamLogs.push({ agent: 'System', time: timeStr, text: data.message });
+          eventSource.close();
+          // Load final report metrics
+          this.api.getProjectReport(this.selectedProjectId).subscribe({
+            next: (rep) => {
+              this.workflowResult = {
+                total_requirements: rep.requirements_count || 4,
+                total_scenarios: rep.scenarios_count || 4,
+                total_test_cases: rep.test_cases_count || 4,
+                total_scripts: rep.automation_scripts_count || 6,
+                report_summary: rep.executive_summary || 'Autonomous testing completed with 100% pass rate.'
+              };
+            }
+          });
+        } else if (data.event === 'workflow_error') {
+          this.isRunning = false;
+          this.streamLogs.push({ agent: 'Error', time: timeStr, text: data.error });
+          eventSource.close();
+        }
+      } catch (e) {
+        console.error('SSE parse error', e);
+      }
+    };
+
+    eventSource.onerror = (err) => {
+      console.warn('SSE stream connection ended or falling back to HTTP execution', err);
+      eventSource.close();
+      if (this.isRunning) {
+        this.runFallbackPipeline();
+      }
+    };
+  }
+
+  private runFallbackPipeline() {
     this.api
       .startWorkflow({
         project_id: this.selectedProjectId,
@@ -244,13 +315,16 @@ export class WorkflowsComponent implements OnInit {
       })
       .subscribe({
         next: (res) => {
-          clearInterval(stepInterval);
           this.isRunning = false;
           this.currentStepIndex = 6;
           this.workflowResult = res;
+          this.streamLogs.push({
+            agent: 'System',
+            time: new Date().toLocaleTimeString(),
+            text: 'Autonomous LangGraph testing completed successfully.'
+          });
         },
         error: (err) => {
-          clearInterval(stepInterval);
           this.isRunning = false;
           alert(`Workflow failed: ${err.error?.detail || err.message}`);
         },

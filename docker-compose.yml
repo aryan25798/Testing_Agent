@@ -1,22 +1,70 @@
 version: '3.8'
 
 services:
-  testing-platform:
+  # Database Service (PostgreSQL 16 for Multi-User Team Deployments)
+  db:
+    image: postgres:16-alpine
+    container_name: testing_platform_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: testing_platform
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - testing-network
+
+  # Backend Service (FastAPI + LangGraph + Playwright Subprocess Sandbox)
+  backend:
     build:
       context: .
-      dockerfile: Dockerfile
-    container_name: testing-agent-platform
+      dockerfile: Dockerfile.backend
+    container_name: testing_platform_backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
     environment:
       - ENVIRONMENT=production
-      - DEBUG=False
       - APP_HOST=0.0.0.0
       - APP_PORT=8000
-      - DATABASE_URL=sqlite:////app/testing_platform.db
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - DATABASE_URL=postgresql://postgres:postgrespassword@db:5432/testing_platform
     ports:
-      - "8000:8000"   # FastAPI Backend & Swagger UI
+      - "8000:8000"
     volumes:
-      - ./artifacts:/app/artifacts
+      - ./data:/app/data
       - ./logs:/app/logs
+      - ./artifacts:/app/artifacts
+    networks:
+      - testing-network
+
+  # Frontend Service (Angular 19 SPA + Nginx Reverse Proxy)
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: testing_platform_frontend
     restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "4200:80"
+    networks:
+      - testing-network
+
+networks:
+  testing-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
