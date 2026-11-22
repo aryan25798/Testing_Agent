@@ -260,3 +260,4 @@ class WorkflowStartRequest(BaseModel):
     file_path: Optional[str] = None
     jira_issue_keys: Optional[List[str]] = None
     framework: str = "playwright"
+    browser: str = "chromium"  # chromium | firefox | webkit | chrome

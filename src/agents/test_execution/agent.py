@@ -79,11 +79,11 @@ class TestExecutionAgent(BaseAgent):
             system_instructions=SYSTEM_INSTRUCTIONS,
         )
 
-    def _execute_single_target(self, target: ExecutionTarget, base_url: str) -> SingleTestResult:
+    def _execute_single_target(self, target: ExecutionTarget, base_url: str, browser: str = "chromium") -> SingleTestResult:
         """Executes a single test target and classifies result."""
         test_start = time.time()
         try:
-            res = self._execute_script_isolated(target.code_content, base_url)
+            res = self._execute_script_isolated(target.code_content, base_url, browser=browser)
             duration = round(time.time() - test_start, 2)
 
             if res["exit_code"] == 0:
@@ -127,6 +127,7 @@ class TestExecutionAgent(BaseAgent):
         runner_type: str = "playwright",
         target_env: str = "QA",
         base_url: str = "http://127.0.0.1:8000",
+        browser: str = "chromium",
         project_id: Optional[str] = None,
         parallel: bool = True,
         max_workers: int = 4,
@@ -139,14 +140,14 @@ class TestExecutionAgent(BaseAgent):
         failed_count = 0
         skipped_count = 0
 
-        logger.info(f"Starting test execution run {execution_key} for {len(targets)} tests (parallel={parallel}, workers={max_workers}).")
+        logger.info(f"Starting test execution run {execution_key} for {len(targets)} tests on {browser} (parallel={parallel}, workers={max_workers}).")
 
         if parallel and len(targets) > 1:
             workers = min(max_workers, len(targets))
-            logger.info(f"Executing {len(targets)} tests across {workers} parallel worker threads.")
+            logger.info(f"Executing {len(targets)} tests across {workers} parallel worker threads on {browser}.")
             with ThreadPoolExecutor(max_workers=workers) as executor:
                 future_to_target = {
-                    executor.submit(self._execute_single_target, target, base_url): target
+                    executor.submit(self._execute_single_target, target, base_url, browser): target
                     for target in targets
                 }
                 for future in as_completed(future_to_target):
@@ -164,7 +165,7 @@ class TestExecutionAgent(BaseAgent):
             results.sort(key=lambda r: target_order.get(r.test_case_key, 999))
         else:
             for target in targets:
-                single_res = self._execute_single_target(target, base_url)
+                single_res = self._execute_single_target(target, base_url, browser)
                 results.append(single_res)
                 if single_res.status == "Passed":
                     passed_count += 1
@@ -183,6 +184,7 @@ class TestExecutionAgent(BaseAgent):
                 runner_type=runner_type,
                 target_env=target_env,
                 base_url=base_url,
+                browser=browser,
                 total=len(targets),
                 passed=passed_count,
                 failed=failed_count,
@@ -202,9 +204,10 @@ class TestExecutionAgent(BaseAgent):
             summary=f"Executed {len(targets)} tests: {passed_count} Passed, {failed_count} Failed in {total_duration}s.",
         )
 
-    def _execute_script_isolated(self, code_content: str, base_url: str) -> Dict[str, Any]:
+    def _execute_script_isolated(self, code_content: str, base_url: str, browser: str = "chromium") -> Dict[str, Any]:
         """Runs the script inside an isolated temporary file using python -c or temporary script."""
         project_root = str(Path(__file__).resolve().parent.parent.parent.parent)
+        browser_lower = (browser or "chromium").lower()
 
         with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False, encoding="utf-8") as tmp:
             tmp_path = tmp.name
@@ -269,22 +272,33 @@ for name, obj in list(locals().items()):
             elif "page" in sig.parameters:
                 from playwright.sync_api import sync_playwright
                 with sync_playwright() as p:
-                    browser = p.chromium.launch(headless=True)
-                    ctx = browser.new_context(base_url="{base_url}")
+                    b_type = "{browser_lower}"
+                    if b_type in ("firefox", "webkit", "chromium"):
+                        browser_inst = getattr(p, b_type).launch(headless=True)
+                    else:
+                        browser_inst = p.chromium.launch(headless=True)
+                    ctx = browser_inst.new_context(base_url="{base_url}")
                     pw_page = ctx.new_page()
                     try:
                         obj(pw_page)
                     finally:
                         pw_page.close()
                         ctx.close()
-                        browser.close()
+                        browser_inst.close()
             elif "driver" in sig.parameters:
                 from selenium import webdriver
-                from selenium.webdriver.chrome.options import Options
-                opts = Options()
-                opts.add_argument("--headless=new")
-                opts.add_argument("--no-sandbox")
-                drv = webdriver.Chrome(options=opts)
+                b_type = "{browser_lower}"
+                if b_type in ("firefox", "gecko"):
+                    from selenium.webdriver.firefox.options import Options as FOptions
+                    opts = FOptions()
+                    opts.add_argument("--headless")
+                    drv = webdriver.Firefox(options=opts)
+                else:
+                    from selenium.webdriver.chrome.options import Options
+                    opts = Options()
+                    opts.add_argument("--headless=new")
+                    opts.add_argument("--no-sandbox")
+                    drv = webdriver.Chrome(options=opts)
                 try:
                     obj(drv)
                 finally:
@@ -401,6 +415,7 @@ print("Execution verification completed.")
         skipped: int,
         duration: float,
         results: List[SingleTestResult],
+        browser: str = "chromium",
     ):
         try:
             with SessionLocal() as db:
@@ -410,6 +425,7 @@ print("Execution verification completed.")
                     runner_type=runner_type,
                     target_environment=target_env,
                     base_url=base_url,
+                    browser=browser,
                     total_tests=total,
                     passed_tests=passed,
                     failed_tests=failed,

@@ -14,6 +14,7 @@ class TestingWorkflowState(TypedDict):
     raw_input_text: str
     source_type: str  # manual | file | jira
     framework: str    # playwright | selenium
+    browser: Optional[str]  # chromium | firefox | webkit | chrome
     base_url: str
 
     # Artifacts passed between agents

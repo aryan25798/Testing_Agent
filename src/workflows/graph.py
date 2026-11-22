@@ -50,6 +50,16 @@ def requirement_node(state: TestingWorkflowState) -> Dict[str, Any]:
         except Exception as e:
             logger.warning(f"Could not fetch from GitHub MCP: {e}")
 
+        # Deterministic AST Code Indexer (Zero-cost contract extraction for massive monorepos)
+        try:
+            from src.integrations.git.ast_indexer import ast_code_indexer
+            contract_summary = ast_code_indexer.index_directory(".")
+            if contract_summary.frontend_routes or contract_summary.api_endpoints:
+                compact_contract = contract_summary.to_compact_markdown()
+                parts.append(f"STATIC CODE AST CONTRACT (DETERMINISTIC ZERO-COST SLICER):\n{compact_contract}")
+        except Exception as e:
+            logger.warning(f"Could not index static code interface contracts: {e}")
+
         try:
             import asyncio
             from src.integrations.mcp.mcp_agent_client import mcp_agent_client
@@ -220,6 +230,7 @@ def automation_node(state: TestingWorkflowState) -> Dict[str, Any]:
     inp = AutomationGenerationInput(
         test_cases=tc_objs,
         framework=state.get("framework", "playwright"),
+        browser_name=state.get("browser", "chromium") or "chromium",
         base_url=state.get("base_url", "http://127.0.0.1:8000"),
     )
     result = auto_agent.run(inp, project_id=state["project_id"])
@@ -270,6 +281,7 @@ def execution_node(state: TestingWorkflowState) -> Dict[str, Any]:
         targets=targets,
         runner_type=state.get("framework", "playwright"),
         base_url=state.get("base_url", "http://127.0.0.1:8000"),
+        browser=state.get("browser", "chromium") or "chromium",
         project_id=state["project_id"],
     )
 

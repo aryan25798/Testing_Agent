@@ -27,6 +27,7 @@ class GeneratedScript(BaseModel):
 class AutomationGenerationInput(BaseModel):
     test_cases: List[GeneratedTestCase]
     framework: str = "playwright"  # playwright | selenium
+    browser_name: str = "chromium"  # chromium | firefox | webkit | chrome
     base_url: Optional[str] = "http://127.0.0.1:8000"
 
 
@@ -65,13 +66,17 @@ class TestAutomationAgent(BaseAgent):
         if framework not in ["playwright", "selenium"]:
             framework = "playwright"
 
+        browser_name = (input_data.browser_name or "chromium").lower()
+        if browser_name not in ["chromium", "firefox", "webkit", "chrome"]:
+            browser_name = "chromium"
+
         scripts = []
 
         # 1. Base Configuration & Fixtures
         if framework == "playwright":
-            conftest_code = self._generate_playwright_conftest(input_data.base_url)
+            conftest_code = self._generate_playwright_conftest(input_data.base_url, browser_name)
         else:
-            conftest_code = self._generate_selenium_conftest(input_data.base_url)
+            conftest_code = self._generate_selenium_conftest(input_data.base_url, browser_name)
 
         scripts.append(
             self._create_validated_script(
@@ -145,19 +150,22 @@ class TestAutomationAgent(BaseAgent):
             validation_error=err,
         )
 
-    def _generate_playwright_conftest(self, base_url: str) -> str:
+    def _generate_playwright_conftest(self, base_url: str, browser_name: str = "chromium") -> str:
+        pw_browser = "chromium" if browser_name in ("chromium", "chrome") else browser_name
         return f'''"""
-Playwright Fixtures and Browser Configuration.
+Playwright Fixtures and Browser Configuration ({pw_browser}).
 """
 import pytest
 from playwright.sync_api import sync_playwright
 
 BASE_URL = "{base_url}"
+BROWSER_NAME = "{pw_browser}"
 
 @pytest.fixture(scope="session")
 def browser_context():
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        browser_type = getattr(p, BROWSER_NAME, p.chromium)
+        browser = browser_type.launch(headless=True)
         context = browser.new_context(base_url=BASE_URL)
         yield context
         context.close()
@@ -224,23 +232,32 @@ def {test_func_name}(page: Page):
     print("Test {tc.test_case_key} executed successfully against target environment.")
 '''
 
-    def _generate_selenium_conftest(self, base_url: str) -> str:
+    def _generate_selenium_conftest(self, base_url: str, browser_name: str = "chrome") -> str:
+        is_firefox = browser_name.lower() in ("firefox", "gecko")
+        if is_firefox:
+            driver_setup = """    from selenium.webdriver.firefox.options import Options
+    options = Options()
+    options.add_argument("--headless")
+    driver = webdriver.Firefox(options=options)"""
+        else:
+            driver_setup = """    from selenium.webdriver.chrome.options import Options
+    options = Options()
+    options.add_argument("--headless=new")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    driver = webdriver.Chrome(options=options)"""
+
         return f'''"""
-Selenium WebDriver Fixtures and Configuration.
+Selenium WebDriver Fixtures and Configuration ({browser_name}).
 """
 import pytest
 from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
 
 BASE_URL = "{base_url}"
 
 @pytest.fixture
 def driver():
-    options = Options()
-    options.add_argument("--headless=new")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    driver = webdriver.Chrome(options=options)
+{driver_setup}
     driver.implicitly_wait(10)
     yield driver
     driver.quit()
