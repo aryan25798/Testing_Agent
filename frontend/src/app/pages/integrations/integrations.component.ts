@@ -70,12 +70,12 @@ import {
         </button>
       </div>
 
-      <!-- 2. Navigation Tabs -->
-      <div class="flex border-b border-slate-200 dark:border-slate-800 gap-1 sm:gap-4 overflow-x-auto">
+      <!-- 2. Navigation Tabs (Responsive & Non-overlapping with shrink-0) -->
+      <div class="flex items-center border-b border-slate-200/80 dark:border-slate-800 gap-1 sm:gap-2.5 overflow-x-auto pb-px">
         <button
           (click)="activeTab = 'servers'"
-          class="pb-3 px-3 text-xs sm:text-sm font-bold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap"
-          [ngClass]="activeTab === 'servers' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'"
+          class="shrink-0 pb-3 px-2.5 sm:px-3 text-xs sm:text-sm font-semibold border-b-2 transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap cursor-pointer select-none"
+          [ngClass]="activeTab === 'servers' ? 'border-blue-600 text-blue-600 dark:text-blue-400 font-bold' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-700'"
         >
           <app-icon name="network" size="16"></app-icon>
           <span>MCP Server Connections</span>
@@ -83,8 +83,8 @@ import {
 
         <button
           (click)="activeTab = 'mappings'"
-          class="pb-3 px-3 text-xs sm:text-sm font-bold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap"
-          [ngClass]="activeTab === 'mappings' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'"
+          class="shrink-0 pb-3 px-2.5 sm:px-3 text-xs sm:text-sm font-semibold border-b-2 transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap cursor-pointer select-none"
+          [ngClass]="activeTab === 'mappings' ? 'border-blue-600 text-blue-600 dark:text-blue-400 font-bold' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-700'"
         >
           <app-icon name="folder" size="16"></app-icon>
           <span>Project Resource Mapping</span>
@@ -92,8 +92,8 @@ import {
 
         <button
           (click)="activeTab = 'tools'"
-          class="pb-3 px-3 text-xs sm:text-sm font-bold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap"
-          [ngClass]="activeTab === 'tools' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'"
+          class="shrink-0 pb-3 px-2.5 sm:px-3 text-xs sm:text-sm font-semibold border-b-2 transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap cursor-pointer select-none"
+          [ngClass]="activeTab === 'tools' ? 'border-blue-600 text-blue-600 dark:text-blue-400 font-bold' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-700'"
         >
           <app-icon name="workflow" size="16"></app-icon>
           <span>Discovered Tools ({{ tools.length }})</span>
@@ -101,8 +101,8 @@ import {
 
         <button
           (click)="activeTab = 'approvals'"
-          class="pb-3 px-3 text-xs sm:text-sm font-bold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap"
-          [ngClass]="activeTab === 'approvals' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'"
+          class="shrink-0 pb-3 px-2.5 sm:px-3 text-xs sm:text-sm font-semibold border-b-2 transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap cursor-pointer select-none"
+          [ngClass]="activeTab === 'approvals' ? 'border-blue-600 text-blue-600 dark:text-blue-400 font-bold' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-700'"
         >
           <app-icon name="shield-check" size="16"></app-icon>
           <span>Approval Queue</span>
@@ -113,8 +113,8 @@ import {
 
         <button
           (click)="activeTab = 'logs'"
-          class="pb-3 px-3 text-xs sm:text-sm font-bold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap"
-          [ngClass]="activeTab === 'logs' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'"
+          class="shrink-0 pb-3 px-2.5 sm:px-3 text-xs sm:text-sm font-semibold border-b-2 transition-all flex items-center gap-1.5 sm:gap-2 whitespace-nowrap cursor-pointer select-none"
+          [ngClass]="activeTab === 'logs' ? 'border-blue-600 text-blue-600 dark:text-blue-400 font-bold' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-700'"
         >
           <app-icon name="clock" size="16"></app-icon>
           <span>Audit Log</span>
