@@ -32,6 +32,22 @@ exec_agent = TestExecutionAgent()
 report_agent = OrchestrationReportingAgent()
 
 
+def _run_coroutine_safely(coro):
+    """Executes an async coroutine safely whether or not an event loop is already active in the thread."""
+    import asyncio
+    import concurrent.futures
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if loop and loop.is_running():
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            return pool.submit(lambda: asyncio.run(coro)).result()
+    else:
+        return asyncio.run(coro)
+
+
 # --- Node Definitions ---
 
 def requirement_node(state: TestingWorkflowState) -> Dict[str, Any]:
@@ -42,9 +58,8 @@ def requirement_node(state: TestingWorkflowState) -> Dict[str, Any]:
     if state.get("project_id"):
         parts = []
         try:
-            import asyncio
             from src.integrations.mcp.mcp_agent_client import mcp_agent_client
-            git_data = asyncio.run(mcp_agent_client.get_github_file(state["project_id"], "README.md"))
+            git_data = _run_coroutine_safely(mcp_agent_client.get_github_file(state["project_id"], "README.md"))
             if git_data:
                 parts.append(f"GITHUB SPECIFICATION (VIA GITHUB MCP):\n{git_data}")
         except Exception as e:
@@ -61,9 +76,8 @@ def requirement_node(state: TestingWorkflowState) -> Dict[str, Any]:
             logger.warning(f"Could not index static code interface contracts: {e}")
 
         try:
-            import asyncio
             from src.integrations.mcp.mcp_agent_client import mcp_agent_client
-            jira_data = asyncio.run(mcp_agent_client.get_jira_issues(state["project_id"]))
+            jira_data = _run_coroutine_safely(mcp_agent_client.get_jira_issues(state["project_id"]))
             if jira_data:
                 jira_str = "\n".join([str(item.get("raw_content")) for item in jira_data])
                 parts.append(f"JIRA USER STORIES (VIA ATLASSIAN MCP):\n{jira_str}")
@@ -139,7 +153,17 @@ def scenario_node(state: TestingWorkflowState) -> Dict[str, Any]:
                 Requirement.project_id == state["project_id"],
                 Requirement.requirement_key == s.requirement_key,
             ).first()
-            req_id = req_record.id if req_record else state["project_id"]
+            if not req_record:
+                # Fall back to first available requirement for this project
+                req_record = db.query(Requirement).filter(
+                    Requirement.project_id == state["project_id"]
+                ).first()
+
+            if not req_record:
+                logger.warning(f"No requirement found in project {state['project_id']} for scenario {s.scenario_key}, skipping.")
+                continue
+
+            req_id = req_record.id
 
             existing = db.query(TestScenario).filter(
                 TestScenario.project_id == state["project_id"],
@@ -186,8 +210,18 @@ def test_case_node(state: TestingWorkflowState) -> Dict[str, Any]:
                 TestScenario.project_id == state["project_id"],
                 TestScenario.scenario_key == tc.scenario_key,
             ).first()
-            scen_id = scen_record.id if scen_record else state["project_id"]
-            req_id = scen_record.requirement_id if scen_record else state["project_id"]
+            if not scen_record:
+                # Fall back to first available scenario for this project
+                scen_record = db.query(TestScenario).filter(
+                    TestScenario.project_id == state["project_id"]
+                ).first()
+
+            if not scen_record:
+                logger.warning(f"No scenario found in project {state['project_id']} for test case {tc.test_case_key}, skipping.")
+                continue
+
+            scen_id = scen_record.id
+            req_id = scen_record.requirement_id
 
             existing = db.query(TestCase).filter(
                 TestCase.project_id == state["project_id"],

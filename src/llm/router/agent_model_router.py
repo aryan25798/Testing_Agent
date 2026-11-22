@@ -3,7 +3,7 @@ Per-Agent Model Router and Runtime Switching Engine.
 Maintains independent model configuration for all 6 specialized testing agents.
 """
 
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Optional, Tuple
 from src.llm.providers.base import BaseLLMProvider
 from src.llm.providers.gemini_provider import GeminiProvider
 from src.llm.providers.openai_provider import OpenAIProvider

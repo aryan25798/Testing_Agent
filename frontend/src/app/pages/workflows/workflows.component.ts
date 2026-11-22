@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -188,7 +188,7 @@ import { IconComponent } from '../../shared/components/icon.component';
     </div>
   `,
 })
-export class WorkflowsComponent implements OnInit {
+export class WorkflowsComponent implements OnInit, OnDestroy {
   private api = inject(ApiService);
   private route = inject(ActivatedRoute);
 
@@ -200,6 +200,7 @@ export class WorkflowsComponent implements OnInit {
   currentStepIndex = -1;
   workflowResult: any = null;
   streamLogs: Array<{ agent: string; time: string; text: string }> = [];
+  private activeEventSource: EventSource | null = null;
 
   pipelineSteps = [
     { name: 'Requirement Analysis', icon: 'search' },
@@ -224,6 +225,13 @@ export class WorkflowsComponent implements OnInit {
         });
       },
     });
+  }
+
+  ngOnDestroy() {
+    if (this.activeEventSource) {
+      this.activeEventSource.close();
+      this.activeEventSource = null;
+    }
   }
 
   onProjectSelect() {
@@ -253,8 +261,14 @@ export class WorkflowsComponent implements OnInit {
     this.streamLogs = [];
     this.currentStepIndex = 0;
 
+    if (this.activeEventSource) {
+      this.activeEventSource.close();
+      this.activeEventSource = null;
+    }
+
     const streamUrl = this.api.getWorkflowStreamUrl(this.selectedProjectId);
-    const eventSource = new EventSource(streamUrl);
+    this.activeEventSource = new EventSource(streamUrl);
+    const eventSource = this.activeEventSource;
 
     eventSource.onmessage = (event) => {
       try {

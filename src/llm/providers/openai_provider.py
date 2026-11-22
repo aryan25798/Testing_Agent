@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from src.llm.providers.base import BaseLLMProvider, LLMResponse
 from src.config.settings import settings
 from src.core.logging import get_logger
+from src.core.exceptions import ProviderUnavailableError, LLMGenerationError
 
 logger = get_logger("openai_provider")
 
@@ -120,16 +121,14 @@ class OpenAIProvider(BaseLLMProvider):
                 )
             except Exception as e:
                 logger.error(f"OpenAI generate_text failed: {e}")
+                raise LLMGenerationError(
+                    f"OpenAI generate_text failed for model '{target_model}': {e}",
+                    details={"provider": "openai", "model": target_model},
+                ) from e
 
-        # Fallback simulation
-        latency = time.time() - start_time
-        return LLMResponse(
-            text=f"[Simulated OpenAI Output for: {prompt[:80]}...]",
-            input_tokens=len(prompt.split()),
-            output_tokens=50,
-            latency_seconds=round(latency, 2),
-            model=target_model,
-            provider="openai",
+        raise ProviderUnavailableError(
+            "OpenAI provider is not initialized. Check API key configuration.",
+            details={"provider": "openai", "model": target_model},
         )
 
     def generate_structured(
@@ -173,15 +172,12 @@ class OpenAIProvider(BaseLLMProvider):
                 )
             except Exception as e:
                 logger.error(f"OpenAI generate_structured failed: {e}")
+                raise LLMGenerationError(
+                    f"OpenAI generate_structured failed for model '{target_model}': {e}",
+                    details={"provider": "openai", "model": target_model},
+                ) from e
 
-        # Fallback simulation
-        latency = time.time() - start_time
-        return LLMResponse(
-            text="{}",
-            structured_data={},
-            input_tokens=len(prompt.split()),
-            output_tokens=10,
-            latency_seconds=round(latency, 2),
-            model=target_model,
-            provider="openai",
+        raise ProviderUnavailableError(
+            "OpenAI provider is not initialized. Check API key configuration.",
+            details={"provider": "openai", "model": target_model},
         )

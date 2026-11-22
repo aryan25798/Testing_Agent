@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../../environments/environment';
 import {
   Project,
   Requirement,
@@ -23,7 +24,7 @@ import {
 })
 export class ApiService {
   private http = inject(HttpClient);
-  private baseUrl = 'http://127.0.0.1:8000/api/v1';
+  private baseUrl = environment.apiBaseUrl;
 
   // Dashboard
   getDashboardOverview(): Observable<DashboardOverview> {
@@ -164,6 +165,14 @@ export class ApiService {
     framework?: string;
   }): Observable<any> {
     return this.http.post<any>(`${this.baseUrl}/workflows/start`, payload);
+  }
+
+  getWorkflowStatus(workflowId: string): Observable<any> {
+    return this.http.get<any>(`${this.baseUrl}/workflows/${workflowId}/status`);
+  }
+
+  cancelWorkflow(workflowId: string): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/workflows/${workflowId}/cancel`, {});
   }
 
   getProjectReport(projectId: string): Observable<any> {

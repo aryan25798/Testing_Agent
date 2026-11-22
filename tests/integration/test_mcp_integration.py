@@ -120,10 +120,22 @@ def test_project_boundary_enforcement():
         )
         db.add(proj)
 
+        gh_srv = db.query(MCPServerConnection).filter(MCPServerConnection.provider == "github").first()
+        server_id = gh_srv.id if gh_srv else "test-srv"
+        if not gh_srv:
+            srv = MCPServerConnection(
+                id=server_id,
+                provider="github",
+                server_name="Test GitHub Server",
+                status="connected",
+            )
+            db.add(srv)
+            db.flush()
+
         # Map to specific repo only
         mapping = ProjectIntegrationMapping(
             project_id=project_id,
-            server_id="test-srv",
+            server_id=server_id,
             provider="github",
             external_id="aryan25798/Testing_Agent",
             selected_resources=["aryan25798/Testing_Agent"],

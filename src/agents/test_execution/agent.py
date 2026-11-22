@@ -21,6 +21,7 @@ from src.config.settings import settings
 from src.core.logging import get_logger
 from src.core.security.sanitizer import prompt_sanitizer
 from src.core.security.audit_logger import audit_logger
+from src.core.exceptions import CodeSafetyViolationError
 
 logger = get_logger("test_execution_agent")
 
@@ -204,15 +205,63 @@ class TestExecutionAgent(BaseAgent):
             summary=f"Executed {len(targets)} tests: {passed_count} Passed, {failed_count} Failed in {total_duration}s.",
         )
 
+    @staticmethod
+    def _validate_code_safety(code_content: str) -> Optional[str]:
+        """Scans automation code for prohibited operations before execution."""
+        prohibited_patterns = [
+            ("os.system", "Prohibited execution of os.system"),
+            ("subprocess.Popen", "Prohibited execution of subprocess.Popen"),
+            ("subprocess.run", "Prohibited execution of subprocess.run"),
+            ("subprocess.call", "Prohibited execution of subprocess.call"),
+            ("shutil.rmtree", "Prohibited destructive file removal shutil.rmtree"),
+            ("eval(", "Prohibited dynamic eval()"),
+            ("exec(", "Prohibited dynamic exec()"),
+            ("__import__('os')", "Prohibited dynamic import of os"),
+            ("__import__(\"os\")", "Prohibited dynamic import of os"),
+            ("__import__('subprocess')", "Prohibited dynamic import of subprocess"),
+            ("__import__(\"subprocess\")", "Prohibited dynamic import of subprocess"),
+            ("testing_platform.db", "Prohibited direct access to platform database file"),
+            (".secrets_vault", "Prohibited direct access to platform secret vault"),
+            ("open('.env'", "Prohibited direct access to platform environment file"),
+            ("open(\".env\"", "Prohibited direct access to platform environment file"),
+            ("open('.env.example'", "Prohibited direct access to platform environment file"),
+        ]
+        lower_code = code_content.lower()
+        for pattern, reason in prohibited_patterns:
+            if pattern.lower() in lower_code:
+                return reason
+        return None
+
     def _execute_script_isolated(self, code_content: str, base_url: str, browser: str = "chromium") -> Dict[str, Any]:
-        """Runs the script inside an isolated temporary file using python -c or temporary script."""
+        """
+        Runs the test script inside a dedicated sandbox directory with process isolation.
+        Validates code safety and avoids f-string formatting over untrusted code.
+        """
+        safety_error = self._validate_code_safety(code_content)
+        if safety_error:
+            audit_logger.log_event(
+                action="CODE_SAFETY_VIOLATION_BLOCKED",
+                status="BLOCKED",
+                details={"reason": safety_error},
+                severity="WARNING",
+            )
+            return {
+                "exit_code": 1,
+                "stdout": "",
+                "stderr": f"Code Safety Violation: {safety_error}. Execution was blocked by safety policy.",
+            }
+
         project_root = str(Path(__file__).resolve().parent.parent.parent.parent)
         browser_lower = (browser or "chromium").lower()
 
-        with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False, encoding="utf-8") as tmp:
-            tmp_path = tmp.name
-            # Wrap execution with safety harness
-            harness_code = f"""# Isolated Test Runner Harness
+        sandbox_dir = settings.ARTIFACTS_DIR / "sandbox"
+        sandbox_dir.mkdir(parents=True, exist_ok=True)
+        import uuid
+        tmp_file = sandbox_dir / f"test_run_{int(time.time())}_{uuid.uuid4().hex[:8]}.py"
+        tmp_path = str(tmp_file)
+
+        # Assemble harness safely by concatenating without evaluating curly braces in code_content
+        harness_header = f"""# Isolated Test Runner Harness
 import sys
 import os
 from pathlib import Path
@@ -258,10 +307,11 @@ except ImportError:
     sys.modules["tests.pages"] = pages_mod
     sys.modules["tests.pages.base_page"] = pages_mod
 
-# User Automation Code Under Test
-{code_content}
+# --- User Automation Code Under Test ---
+"""
 
-# Test Invocation
+        harness_footer = f"""
+# --- Test Invocation Runner ---
 for name, obj in list(locals().items()):
     if name.startswith("test_") and callable(obj):
         try:
@@ -313,7 +363,8 @@ for name, obj in list(locals().items()):
 
 print("Execution verification completed.")
 """
-            tmp.write(harness_code)
+        full_script = harness_header + code_content + "\n" + harness_footer
+        tmp_file.write_text(full_script, encoding="utf-8")
 
         # Construct sanitized execution environment (Zero host secrets passed to test subprocess)
         safe_env_keys = [

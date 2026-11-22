@@ -135,11 +135,7 @@ def get_project_dashboard(project_id: str, db: Session = Depends(get_db)):
                 "status": "Active" if s.is_approved else "Pending Review"
             })
     else:
-        test_suites_data = [
-            {"suite_name": "Checkout Flow", "scenarios": 3, "cases": 26, "status": "Active"},
-            {"suite_name": "Authentication & Session", "scenarios": 2, "cases": 15, "status": "Active"},
-            {"suite_name": "API Integration Suite", "scenarios": 5, "cases": 14, "status": "Active"},
-        ]
+        test_suites_data = []
 
     # Build recent activity
     activity = []

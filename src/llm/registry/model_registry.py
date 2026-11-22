@@ -5,8 +5,7 @@ Discovers and caches available models across Gemini and OpenAI providers.
 
 from typing import List, Dict, Any, Optional
 from src.llm.capabilities.models import KNOWN_CAPABILITIES, ModelCapability
-from src.llm.providers.gemini_provider import GeminiProvider
-from src.llm.providers.openai_provider import OpenAIProvider
+from src.llm.router.agent_model_router import agent_model_router
 from src.core.logging import get_logger
 
 logger = get_logger("model_registry")
@@ -14,8 +13,9 @@ logger = get_logger("model_registry")
 
 class ModelRegistry:
     def __init__(self):
-        self.gemini_provider = GeminiProvider()
-        self.openai_provider = OpenAIProvider()
+        # Reuse the shared provider instances from agent_model_router to avoid duplicates
+        self.gemini_provider = agent_model_router.gemini_provider
+        self.openai_provider = agent_model_router.openai_provider
         self._cached_models: List[ModelCapability] = []
         self._is_initialized = False
 

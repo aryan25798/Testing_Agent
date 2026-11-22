@@ -57,3 +57,28 @@ class SandboxExecutionError(TestingPlatformException):
 class ModelNotAvailableError(TestingPlatformException):
     """Raised when a requested AI model or provider is inaccessible."""
     pass
+
+
+class ProviderUnavailableError(TestingPlatformException):
+    """Raised when an LLM provider API is unreachable or returns a service error."""
+    pass
+
+
+class LLMGenerationError(TestingPlatformException):
+    """Raised when an LLM provider fails to generate a response."""
+    pass
+
+
+class ProviderAuthenticationError(TestingPlatformException):
+    """Raised when authentication with an LLM provider fails (invalid or missing API key)."""
+    pass
+
+
+class WorkflowExecutionTimeoutError(TestingPlatformException):
+    """Raised when an automated testing workflow exceeds the allotted execution timeout."""
+    pass
+
+
+class CodeSafetyViolationError(TestingPlatformException):
+    """Raised when generated test code violates safety rules or attempts prohibited operations."""
+    pass

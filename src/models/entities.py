@@ -15,6 +15,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     JSON,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 from src.database.session import Base
@@ -51,9 +52,12 @@ class Project(Base):
 
 class Requirement(Base):
     __tablename__ = "requirements"
+    __table_args__ = (
+        UniqueConstraint("project_id", "requirement_key", name="uq_req_project_key"),
+    )
 
     id = Column(String(36), primary_key=True, default=generate_uuid)
-    project_id = Column(String(36), ForeignKey("projects.id"), nullable=False)
+    project_id = Column(String(36), ForeignKey("projects.id"), nullable=False, index=True)
     requirement_key = Column(String(100), nullable=False)  # REQ-001 or JIRA-101
     source_type = Column(String(50), default="manual")     # jira, file, manual
     title = Column(String(255), nullable=False)
@@ -79,10 +83,13 @@ class Requirement(Base):
 
 class TestScenario(Base):
     __tablename__ = "test_scenarios"
+    __table_args__ = (
+        UniqueConstraint("project_id", "scenario_key", name="uq_scen_project_key"),
+    )
 
     id = Column(String(36), primary_key=True, default=generate_uuid)
-    project_id = Column(String(36), ForeignKey("projects.id"), nullable=False)
-    requirement_id = Column(String(36), ForeignKey("requirements.id"), nullable=False)
+    project_id = Column(String(36), ForeignKey("projects.id"), nullable=False, index=True)
+    requirement_id = Column(String(36), ForeignKey("requirements.id"), nullable=False, index=True)
     scenario_key = Column(String(100), nullable=False)     # SCEN-001
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=False)
@@ -103,11 +110,14 @@ class TestScenario(Base):
 
 class TestCase(Base):
     __tablename__ = "test_cases"
+    __table_args__ = (
+        UniqueConstraint("project_id", "test_case_key", name="uq_tc_project_key"),
+    )
 
     id = Column(String(36), primary_key=True, default=generate_uuid)
-    project_id = Column(String(36), ForeignKey("projects.id"), nullable=False)
-    scenario_id = Column(String(36), ForeignKey("test_scenarios.id"), nullable=False)
-    requirement_id = Column(String(36), ForeignKey("requirements.id"), nullable=False)
+    project_id = Column(String(36), ForeignKey("projects.id"), nullable=False, index=True)
+    scenario_id = Column(String(36), ForeignKey("test_scenarios.id"), nullable=False, index=True)
+    requirement_id = Column(String(36), ForeignKey("requirements.id"), nullable=False, index=True)
     test_case_key = Column(String(100), nullable=False)    # TC-001
     title = Column(String(255), nullable=False)
     objective = Column(Text, nullable=False)
@@ -134,8 +144,8 @@ class AutomationScript(Base):
     __tablename__ = "automation_scripts"
 
     id = Column(String(36), primary_key=True, default=generate_uuid)
-    project_id = Column(String(36), ForeignKey("projects.id"), nullable=False)
-    test_case_id = Column(String(36), ForeignKey("test_cases.id"), nullable=True)
+    project_id = Column(String(36), ForeignKey("projects.id"), nullable=False, index=True)
+    test_case_id = Column(String(36), ForeignKey("test_cases.id"), nullable=True, index=True)
     framework = Column(String(50), nullable=False)        # selenium | playwright
     script_name = Column(String(255), nullable=False)
     file_path = Column(String(255), nullable=False)
@@ -153,7 +163,7 @@ class TestExecution(Base):
     __tablename__ = "test_executions"
 
     id = Column(String(36), primary_key=True, default=generate_uuid)
-    project_id = Column(String(36), ForeignKey("projects.id"), nullable=False)
+    project_id = Column(String(36), ForeignKey("projects.id"), nullable=False, index=True)
     execution_key = Column(String(100), nullable=False)   # RUN-001
     runner_type = Column(String(50), default="playwright")
     target_environment = Column(String(100), default="QA")
@@ -176,8 +186,8 @@ class TestExecutionResult(Base):
     __tablename__ = "test_execution_results"
 
     id = Column(String(36), primary_key=True, default=generate_uuid)
-    execution_id = Column(String(36), ForeignKey("test_executions.id"), nullable=False)
-    test_case_id = Column(String(36), ForeignKey("test_cases.id"), nullable=True)
+    execution_id = Column(String(36), ForeignKey("test_executions.id"), nullable=False, index=True)
+    test_case_id = Column(String(36), ForeignKey("test_cases.id"), nullable=True, index=True)
     test_title = Column(String(255), nullable=False)
     status = Column(String(50), nullable=False)           # Passed, Failed, Skipped, Blocked, Error
     failing_step = Column(String(255), nullable=True)
@@ -200,7 +210,7 @@ class ApprovalRequest(Base):
     __tablename__ = "approval_requests"
 
     id = Column(String(36), primary_key=True, default=generate_uuid)
-    project_id = Column(String(36), ForeignKey("projects.id"), nullable=False)
+    project_id = Column(String(36), ForeignKey("projects.id"), nullable=False, index=True)
     action_type = Column(String(100), nullable=False)     # git_write, execute_test, delete_data, prod_run
     requested_by = Column(String(100), default="System")
     details = Column(JSON, default=dict)
@@ -216,7 +226,7 @@ class AgentExecution(Base):
     __tablename__ = "agent_executions"
 
     id = Column(String(36), primary_key=True, default=generate_uuid)
-    project_id = Column(String(36), ForeignKey("projects.id"), nullable=True)
+    project_id = Column(String(36), ForeignKey("projects.id"), nullable=True, index=True)
     agent_name = Column(String(100), nullable=False)
     provider = Column(String(50), nullable=False)
     model = Column(String(100), nullable=False)
@@ -300,7 +310,7 @@ class MCPDiscoveredTool(Base):
     __tablename__ = "mcp_discovered_tools"
 
     id = Column(String(36), primary_key=True, default=generate_uuid)
-    server_id = Column(String(36), ForeignKey("mcp_server_connections.id"), nullable=False)
+    server_id = Column(String(36), ForeignKey("mcp_server_connections.id"), nullable=False, index=True)
     tool_name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     input_schema = Column(JSON, default=dict)
@@ -316,8 +326,8 @@ class ProjectIntegrationMapping(Base):
     __tablename__ = "project_integration_mappings"
 
     id = Column(String(36), primary_key=True, default=generate_uuid)
-    project_id = Column(String(36), ForeignKey("projects.id"), nullable=False)
-    server_id = Column(String(36), ForeignKey("mcp_server_connections.id"), nullable=False)
+    project_id = Column(String(36), ForeignKey("projects.id"), nullable=False, index=True)
+    server_id = Column(String(36), ForeignKey("mcp_server_connections.id"), nullable=False, index=True)
     provider = Column(String(50), nullable=False)           # github | atlassian
     external_id = Column(String(255), nullable=False)       # e.g. "owner/repo" or "https://domain.atlassian.net"
     selected_resources = Column(JSON, default=list)         # List of repo slugs or Jira project keys
@@ -336,8 +346,8 @@ class MCPToolInvocationLog(Base):
     __tablename__ = "mcp_tool_invocation_logs"
 
     id = Column(String(36), primary_key=True, default=generate_uuid)
-    server_id = Column(String(36), nullable=False)
-    project_id = Column(String(36), nullable=True)
+    server_id = Column(String(36), nullable=False, index=True)
+    project_id = Column(String(36), nullable=True, index=True)
     agent_id = Column(String(100), nullable=False)
     tool_name = Column(String(255), nullable=False)
     operation_type = Column(String(50), default="read")     # read | write
@@ -353,7 +363,7 @@ class MCPApprovalRequest(Base):
     __tablename__ = "mcp_approval_requests"
 
     id = Column(String(36), primary_key=True, default=generate_uuid)
-    project_id = Column(String(36), ForeignKey("projects.id"), nullable=False)
+    project_id = Column(String(36), ForeignKey("projects.id"), nullable=False, index=True)
     provider = Column(String(50), nullable=False)           # github | atlassian
     agent_id = Column(String(100), nullable=False)
     tool_name = Column(String(255), nullable=False)

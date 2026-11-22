@@ -39,11 +39,13 @@ Zero critical unmitigated vulnerabilities were discovered. The platform implemen
 
 ## 3. TEST EXECUTION SANDBOX & SUBPROCESS ISOLATION
 
-### Process Boundary Defense
-* **Implementation:** [src/core/automation/script_executor.py](file:///e:/Industry%20Grade%20projects/Testing%20Agent/testing-agent-platform/src/core/automation/script_executor.py)
+### Process Boundary & Code Safety Defense
+* **Implementation:** [src/agents/test_execution/agent.py](file:///e:/Industry%20Grade%20projects/Testing%20Agent/testing-agent-platform/src/agents/test_execution/agent.py)
+* **Pre-Execution Code Safety Scanner:** Automated static inspection filters for prohibited dangerous operations before executing scripts (`os.system`, `subprocess.Popen`, `subprocess.run`, `subprocess.call`, `shutil.rmtree`, `eval()`, `exec()`, `__import__`, direct `.env` file reads, `testing_platform.db` tampering, or secret vault access). Violations are blocked immediately and logged as `CODE_SAFETY_VIOLATION_BLOCKED` in the security audit trail.
+* **Injection-Proof Harness Assembly:** Python f-string interpolation was eliminated from untrusted test code embedding. Harness scripts are concatenated via clean string templates, preventing curly brace syntax errors or in-memory code injection.
+* **Dedicated Sandbox Workspace:** Generated test scripts execute inside isolated sandbox directories under `artifacts/sandbox/` and are deterministically unlinked upon completion.
 * **Environment Stripping:** When executing Playwright or Selenium test scripts, the executor does not inherit the parent process's environment variables. Secrets such as `OPENAI_API_KEY`, `GEMINI_API_KEY`, and `SECRET_KEY` are stripped from `os.environ`, preventing generated scripts from accessing host platform secrets.
-* **Execution Timeout:** Subprocesses are wrapped with an unyielding 60-second timeout. Runaway scripts or infinite browser loops are terminated forcefully via `process.kill()`, preventing CPU exhaustion.
-* **File System Boundary:** Test scripts are written to dedicated ephemeral sandbox directories in `tempfile.mkdtemp()` and cleaned up upon execution completion.
+* **Execution Timeout:** Subprocesses are wrapped with an unyielding 30-120 second timeout. Runaway scripts or infinite browser loops are terminated forcefully, preventing CPU exhaustion.
 
 ---
 
@@ -72,9 +74,15 @@ Configured in [src/main.py](file:///e:/Industry%20Grade%20projects/Testing%20Age
 | `X-XSS-Protection` | `1; mode=block` | Reflected Cross-Site Scripting |
 | `Content-Security-Policy` | Strict local origin whitelist (`default-src 'self'`) | Script injection / data exfiltration |
 
-### Denial-of-Service & Host Validation
-* **Payload Size Limiter:** [src/main.py](file:///e:/Industry%20Grade%20projects/Testing%20Agent/testing-agent-platform/src/main.py#L48-L64) inspects `Content-Length`. Requests exceeding `MAX_UPLOAD_SIZE_BYTES` (default 10MB) are rejected with HTTP 413 before memory allocation.
-* **Host Header Validation:** `TrustedHostMiddleware` restricts incoming requests to allowed hosts (`localhost`, `127.0.0.1`), mitigating DNS rebinding and Host header poisoning attacks.
+### Denial-of-Service, CORS & Host Validation
+* **Restricted CORS Policy:** CORS headers explicitly allow only essential safe headers (`Content-Type`, `Authorization`, `Accept`, `X-Requested-With`, `Origin`, `User-Agent`) rather than wildcard `*`.
+* **Payload Size Limiter:** [src/main.py](file:///e:/Industry%20Grade%20projects/Testing%20Agent/testing-agent-platform/src/main.py#L48-L64) inspects `Content-Length`. Requests exceeding `MAX_UPLOAD_SIZE_BYTES` (default 25MB) are rejected with HTTP 413 before memory allocation.
+* **Host Header Validation:** `TrustedHostMiddleware` restricts incoming requests to allowed hosts (`localhost`, `127.0.0.1`, `testserver`), mitigating DNS rebinding and Host header poisoning attacks.
+
+### Database Integrity & Concurrency Hardening
+* **Relational Foreign Key Indexing:** Explicit `index=True` on all FK columns ensures high performance and prevents lock contention during concurrent operations.
+* **Unique Constraints:** Composite unique constraints (`uq_req_project_key`, `uq_scen_project_key`, `uq_tc_project_key`) protect against duplicate key injection and ensure strict multi-project boundary isolation.
+* **High-Concurrency SQLite PRAGMAs:** WAL journal mode, 30s busy timeout, normal synchronous disk writes, in-memory cache, and relational foreign key enforcement.
 
 ### Security Audit Logging
 * **Implementation:** [src/core/security/audit_logger.py](file:///e:/Industry%20Grade%20projects/Testing%20Agent/testing-agent-platform/src/core/security/audit_logger.py)

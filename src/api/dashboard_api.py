@@ -68,7 +68,7 @@ def get_dashboard_overview(db: Session = Depends(get_db)):
     provider_status = model_registry.test_providers()
     agent_configs = agent_model_router.get_all_configurations()
     default_gemini = agent_configs.get("agent_1_requirement_analysis", {}).get("model_id", "gemini-2.5-flash")
-    default_openai = "gpt-5.1" if provider_status.get("openai") else "Not configured"
+    default_openai = agent_configs.get("agent_4_test_automation", {}).get("model_id", "gpt-4o-mini") if provider_status.get("openai") else "Not configured"
 
     ai_model_status = {
         "gemini": {

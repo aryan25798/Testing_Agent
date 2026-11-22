@@ -4,6 +4,7 @@ Hardened with Security Headers, Trusted Host validation, Request Size Limits,
 and Audit Logging.
 """
 
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
@@ -32,12 +33,26 @@ from src.api.mcp_api import router as mcp_router
 
 logger = get_logger("main")
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """FastAPI lifespan context manager for startup/shutdown events."""
+    logger.info(f"Starting {settings.APP_NAME} v{settings.APP_VERSION} in {settings.ENVIRONMENT} mode.")
+    init_db()
+    audit_logger.log_event(
+        action="SERVER_STARTUP",
+        status="SUCCESS",
+        details={"version": settings.APP_VERSION, "environment": settings.ENVIRONMENT, "host": settings.APP_HOST, "port": settings.APP_PORT},
+    )
+    yield
+
+
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
     description="Enterprise-grade AI-powered software testing platform using 6 specialized agents.",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 
@@ -96,13 +111,13 @@ app.add_middleware(
     allowed_hosts=settings.ALLOWED_HOSTS,
 )
 
-# CORS Middleware (Restricted to configured local origins)
+# CORS Middleware (Restricted to configured local origins and safe headers)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
+    allow_headers=["Content-Type", "Authorization", "Accept", "X-Requested-With", "Origin", "User-Agent"],
     expose_headers=["Content-Disposition"],
 )
 
@@ -130,18 +145,6 @@ async def generic_exception_handler(request: Request, exc: Exception):
     return JSONResponse(
         status_code=500,
         content={"error": "Internal Server Error", "detail": "An unexpected error occurred. Check system logs for details."},
-    )
-
-
-# Lifecycle Events
-@app.on_event("startup")
-def on_startup():
-    logger.info(f"Starting {settings.APP_NAME} v{settings.APP_VERSION} in {settings.ENVIRONMENT} mode.")
-    init_db()
-    audit_logger.log_event(
-        action="SERVER_STARTUP",
-        status="SUCCESS",
-        details={"version": settings.APP_VERSION, "environment": settings.ENVIRONMENT, "host": settings.APP_HOST, "port": settings.APP_PORT},
     )
 
 
