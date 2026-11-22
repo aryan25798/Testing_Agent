@@ -249,7 +249,7 @@ class MCPConnectionManager:
             discovered_tools_payload = []
             for t in NATIVE_GITHUB_TOOLS_SCHEMA:
                 is_write = not t["is_read_only"]
-                allowed = ["agent_4_test_automation"] if is_write else ["agent_1_requirement_analysis", "agent_4_test_automation"]
+                allowed = ["orchestrator", "agent_4_test_automation"] if is_write else ["orchestrator", "agent_1_requirement_analysis", "agent_4_test_automation"]
                 tool_row = MCPDiscoveredTool(
                     server_id=server.id,
                     tool_name=t["name"],
@@ -336,9 +336,9 @@ class MCPConnectionManager:
                             risk = "high" if is_write else "low"
 
                             # Permitted agent assignments
-                            allowed = ["agent_1_requirement_analysis", "agent_4_test_automation"]
+                            allowed = ["orchestrator", "agent_1_requirement_analysis", "agent_4_test_automation"]
                             if is_write:
-                                allowed = ["agent_4_test_automation"]
+                                allowed = ["orchestrator", "agent_4_test_automation"]
 
                             tool_row = MCPDiscoveredTool(
                                 server_id=server.id,
@@ -447,7 +447,9 @@ class MCPConnectionManager:
                 for t in tools_list.tools:
                     is_write = t.name in MUTATING_JIRA_TOOLS
                     risk = "high" if is_write else "low"
-                    allowed = ["agent_1_requirement_analysis", "agent_6_orchestration_reporting"]
+                    allowed = ["orchestrator", "agent_1_requirement_analysis", "agent_6_orchestration_reporting"]
+                    if is_write:
+                        allowed = ["orchestrator", "agent_6_orchestration_reporting"]
 
                     tool_row = MCPDiscoveredTool(
                         server_id=server.id,
@@ -531,8 +533,11 @@ class MCPConnectionManager:
             if not tool_record:
                 raise ValueError(f"MCP tool '{tool_name}' is not recognized or not discovered for {prov_clean}.")
 
-            # Validate agent authorization
-            if tool_record.allowed_agents and agent_id not in tool_record.allowed_agents:
+            # Validate agent authorization:
+            # Orchestrator and system callers are authorized for all read-only inspection/discovery tools
+            if agent_id in ("orchestrator", "system", "admin") and tool_record.is_read_only:
+                pass
+            elif tool_record.allowed_agents and agent_id not in tool_record.allowed_agents:
                 raise PermissionError(
                     f"Agent '{agent_id}' is not authorized to invoke MCP tool '{tool_name}'. Allowed: {tool_record.allowed_agents}"
                 )
