@@ -25,6 +25,16 @@ from src.llm.router.agent_model_router import agent_model_router
 router = APIRouter(prefix="/dashboard", tags=["Dashboard Overview"])
 
 
+def _format_utc_iso(dt) -> str:
+    """Ensures ISO 8601 timestamps include explicit UTC indicator 'Z' so clients parse timezone accurately."""
+    if not dt:
+        return datetime.utcnow().isoformat() + "Z"
+    iso_val = dt.isoformat() if hasattr(dt, "isoformat") else str(dt)
+    if not iso_val.endswith("Z") and "+" not in iso_val:
+        return iso_val + "Z"
+    return iso_val
+
+
 @router.get("/overview", response_model=Dict[str, Any])
 def get_dashboard_overview(db: Session = Depends(get_db)):
     """
@@ -119,7 +129,7 @@ def get_dashboard_overview(db: Session = Depends(get_db)):
             "title": f"Test execution completed ({ex.passed_tests} passed, {ex.failed_tests} failed)",
             "project_name": p_name,
             "project_id": ex.project_id,
-            "timestamp": ex.created_at.isoformat() if ex.created_at else now.isoformat(),
+            "timestamp": _format_utc_iso(ex.created_at),
         })
 
     # Recent test cases activity
@@ -133,7 +143,7 @@ def get_dashboard_overview(db: Session = Depends(get_db)):
             "title": f"Test case created: {tc.test_case_key} - {tc.title}",
             "project_name": p_name,
             "project_id": tc.project_id,
-            "timestamp": tc.created_at.isoformat() if tc.created_at else now.isoformat(),
+            "timestamp": _format_utc_iso(tc.created_at),
         })
 
     # Sort activities by timestamp descending

@@ -715,13 +715,30 @@ export class DashboardComponent implements OnInit, OnDestroy, AfterViewInit {
       let timeStr = 'Just now';
       if (a.timestamp) {
         try {
-          const diffMinutes = Math.floor((Date.now() - new Date(a.timestamp).getTime()) / 60000);
-          if (diffMinutes < 1) timeStr = 'Just now';
-          else if (diffMinutes < 60) timeStr = `${diffMinutes}m ago`;
-          else if (diffMinutes < 1440) timeStr = `${Math.floor(diffMinutes / 60)}h ago`;
-          else timeStr = `${Math.floor(diffMinutes / 1440)}d ago`;
+          // Normalize ISO string to ensure UTC 'Z' indicator is present so local browser time accurately computes delta
+          let rawTs = String(a.timestamp).trim();
+          if (rawTs && !rawTs.endsWith('Z') && !rawTs.includes('+')) {
+            rawTs = rawTs + 'Z';
+          }
+          const itemTime = new Date(rawTs).getTime();
+          const now = Date.now();
+          const diffMs = Math.max(0, now - itemTime);
+          const diffSeconds = Math.floor(diffMs / 1000);
+          const diffMinutes = Math.floor(diffSeconds / 60);
+
+          if (diffSeconds < 60) {
+            timeStr = 'Just now';
+          } else if (diffMinutes < 60) {
+            timeStr = `${diffMinutes}m ago`;
+          } else if (diffMinutes < 1440) {
+            const h = Math.floor(diffMinutes / 60);
+            timeStr = `${h}h ago`;
+          } else {
+            const d = Math.floor(diffMinutes / 1440);
+            timeStr = `${d}d ago`;
+          }
         } catch {
-          timeStr = 'Recently';
+          timeStr = 'Just now';
         }
       }
       return {
