@@ -139,6 +139,12 @@ class MCPAgentClient:
             arguments=args,
         )
 
+        try:
+            parsed = json.loads(raw_res)
+            if isinstance(parsed, dict) and "content" in parsed and isinstance(parsed["content"], str):
+                return parsed["content"]
+        except Exception:
+            pass
         return raw_res
 
     @classmethod
