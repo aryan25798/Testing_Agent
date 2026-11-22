@@ -52,6 +52,23 @@ MUTATING_JIRA_TOOLS = {
     "jira_assign_issue",
 }
 
+# Full 6-agent + orchestrator permission matrix
+ALL_READ_AGENTS = [
+    "agent_1_requirement_analysis",
+    "agent_2_scenario_generation",
+    "agent_3_test_case_design",
+    "agent_4_test_automation",
+    "agent_5_test_execution",
+    "agent_6_orchestration_reporting",
+    "orchestrator",
+]
+
+ALL_WRITE_AGENTS = [
+    "agent_4_test_automation",
+    "agent_6_orchestration_reporting",
+    "orchestrator",
+]
+
 
 class MCPConnectionManager:
     """

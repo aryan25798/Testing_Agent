@@ -189,3 +189,5 @@ class SecretsManager:
 
 # Global singleton instance
 secrets_manager = SecretsManager()
+secrets_vault = secrets_manager
+

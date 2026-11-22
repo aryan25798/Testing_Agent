@@ -13,7 +13,15 @@ from src.core.logging import get_logger
 
 logger = get_logger("database")
 
-is_sqlite = settings.DATABASE_URL.startswith("sqlite")
+# Resolve relative SQLite path to absolute BASE_DIR to prevent cwd contamination
+db_url = settings.DATABASE_URL
+if db_url.startswith("sqlite:///.") or db_url.startswith("sqlite:///testing_platform.db"):
+    # Strip sqlite:/// prefix and resolve relative to BASE_DIR
+    rel_path = db_url.replace("sqlite:///", "")
+    resolved_db = (settings.BASE_DIR / rel_path).resolve()
+    db_url = f"sqlite:///{resolved_db.as_posix()}"
+
+is_sqlite = db_url.startswith("sqlite")
 
 # Configure driver parameters and connection pooling
 if is_sqlite:
@@ -38,7 +46,7 @@ else:
         "future": True,
     }
 
-engine = create_engine(settings.DATABASE_URL, **engine_kwargs)
+engine = create_engine(db_url, **engine_kwargs)
 
 # Inject high-concurrency PRAGMAs on every SQLite connection
 if is_sqlite:

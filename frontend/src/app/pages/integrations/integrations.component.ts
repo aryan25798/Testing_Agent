@@ -327,7 +327,7 @@ import {
       <!-- ========================================== -->
       <div *ngIf="activeTab === 'mappings'" class="space-y-6">
         <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-6 shadow-subtle space-y-6">
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-100 dark:border-slate-800">
             <div>
               <h2 class="text-lg font-bold text-slate-900 dark:text-white">Project-Level Integration Mapping</h2>
               <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -337,14 +337,43 @@ import {
 
             <!-- Project Selector Dropdown -->
             <div class="flex items-center gap-2">
-              <label class="text-xs font-bold text-slate-500">Internal Project:</label>
+              <label class="text-xs font-bold text-slate-500 dark:text-slate-400">Internal Project:</label>
               <select
                 [(ngModel)]="selectedProjectId"
-                (change)="loadProjectMapping()"
-                class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+                (change)="onProjectChange()"
+                class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
               >
                 <option *ngFor="let p of projects" [value]="p.id">{{ p.name }} ({{ p.framework }})</option>
               </select>
+            </div>
+          </div>
+
+          <!-- Active Integration Status Summary Banner -->
+          <div class="p-3.5 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/40 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div class="flex items-center gap-2">
+              <span class="text-slate-500 dark:text-slate-400 font-medium">Selected Project:</span>
+              <span class="font-bold text-slate-900 dark:text-white">{{ selectedProject?.name || 'No Project' }}</span>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">{{ selectedProject?.framework }}</span>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+              <!-- GitHub Badge -->
+              <div *ngIf="activeMapping.githubRepo" class="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[11px] font-semibold flex items-center gap-1.5">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                <span>GitHub: <strong class="font-mono">{{ activeMapping.githubRepo }}</strong></span>
+              </div>
+              <div *ngIf="!activeMapping.githubRepo" class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-400 text-[11px] font-medium">
+                GitHub: Not Mapped
+              </div>
+
+              <!-- Jira Badge -->
+              <div *ngIf="activeMapping.jiraKey" class="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[11px] font-semibold flex items-center gap-1.5">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                <span>Jira Key: <strong class="font-mono">{{ activeMapping.jiraKey }}</strong></span>
+              </div>
+              <div *ngIf="!activeMapping.jiraKey" class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-400 text-[11px] font-medium">
+                Jira: Not Mapped
+              </div>
             </div>
           </div>
 
@@ -361,37 +390,54 @@ import {
               </div>
 
               <div>
-                <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">Target Repository (owner/repo)</label>
+                <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">Target Repository (owner/repo or URL)</label>
                 <div class="flex gap-2">
                   <input
                     type="text"
                     [(ngModel)]="activeMapping.githubRepo"
-                    placeholder="e.g. aryan25798/Testing_Agent"
+                    (ngModelChange)="cleanRepoInput()"
+                    placeholder="e.g. aryan25798/TrainMate or paste GitHub URL"
                     class="flex-1 px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:border-blue-500 outline-none"
                   />
                   <button
                     (click)="discoverRepos()"
                     [disabled]="discoveringRepos || getServer('github')?.status !== 'connected'"
-                    class="px-3 py-2 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-slate-800 dark:text-white text-xs font-semibold disabled:opacity-50"
-                    title="Discover Repositories via MCP"
+                    class="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold disabled:opacity-50 transition-all flex items-center gap-1.5 cursor-pointer"
+                    title="Discover Repositories via GitHub MCP"
                   >
-                    {{ discoveringRepos ? 'Scanning...' : 'Discover' }}
+                    <app-icon *ngIf="discoveringRepos" name="rotate-ccw" size="12" class="animate-spin"></app-icon>
+                    <span>{{ discoveringRepos ? 'Scanning...' : 'Discover' }}</span>
                   </button>
                 </div>
                 <p class="text-[10px] text-slate-400 mt-1">Cross-project access outside this repository will be blocked by the MCP Tool Registry.</p>
               </div>
 
               <!-- Discovered Repos Picker if loaded -->
-              <div *ngIf="discoveredRepos.length > 0" class="space-y-1 max-h-36 overflow-y-auto p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-                <span class="text-[10px] uppercase font-bold text-slate-400 block mb-1">Select from your GitHub repos:</span>
-                <div
-                  *ngFor="let r of discoveredRepos"
-                  (click)="activeMapping.githubRepo = r.full_name"
-                  class="p-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 cursor-pointer text-xs flex items-center justify-between"
-                  [ngClass]="activeMapping.githubRepo === r.full_name ? 'bg-blue-50 dark:bg-blue-900/30' : ''"
-                >
-                  <span class="font-mono font-medium text-slate-800 dark:text-slate-200">{{ r.full_name }}</span>
-                  <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500">{{ r.default_branch }}</span>
+              <div *ngIf="discoveredRepos.length > 0" class="space-y-2 p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">
+                    Discovered Repos ({{ filteredDiscoveredRepos.length }} / {{ discoveredRepos.length }}):
+                  </span>
+                  <input
+                    type="text"
+                    [(ngModel)]="repoFilter"
+                    placeholder="Filter repos..."
+                    class="px-2 py-0.5 text-[11px] rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white outline-none w-32"
+                  />
+                </div>
+                <div class="space-y-1 max-h-44 overflow-y-auto pr-1">
+                  <div
+                    *ngFor="let r of filteredDiscoveredRepos"
+                    (click)="selectRepo(r)"
+                    class="p-2 rounded-lg border transition-all cursor-pointer text-xs flex items-center justify-between"
+                    [ngClass]="activeMapping.githubRepo === r.full_name ? 'bg-blue-50 dark:bg-blue-900/40 border-blue-500 text-blue-600 dark:text-blue-300 font-bold' : 'border-transparent hover:bg-slate-100 dark:hover:bg-slate-700/60 text-slate-800 dark:text-slate-200'"
+                  >
+                    <div class="flex items-center gap-2 min-w-0">
+                      <app-icon *ngIf="activeMapping.githubRepo === r.full_name" name="check" size="14" class="text-blue-500 shrink-0"></app-icon>
+                      <span class="font-mono font-medium truncate">{{ r.full_name }}</span>
+                    </div>
+                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 shrink-0">{{ r.default_branch }}</span>
+                  </div>
                 </div>
               </div>
 
@@ -422,46 +468,59 @@ import {
                   <input
                     type="text"
                     [(ngModel)]="activeMapping.jiraKey"
-                    placeholder="e.g. TEST, PROJ, QA"
+                    (ngModelChange)="cleanJiraInput()"
+                    placeholder="e.g. TEST, PROJ, QA, KAN"
                     class="flex-1 px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white uppercase focus:border-blue-500 outline-none"
                   />
                   <button
                     (click)="discoverJiraProjects()"
                     [disabled]="discoveringJira || getServer('atlassian')?.status !== 'connected'"
-                    class="px-3 py-2 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-slate-800 dark:text-white text-xs font-semibold disabled:opacity-50"
-                    title="Discover Jira Projects via MCP"
+                    class="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold disabled:opacity-50 transition-all flex items-center gap-1.5 cursor-pointer"
+                    title="Discover Jira Projects via Atlassian MCP"
                   >
-                    {{ discoveringJira ? 'Scanning...' : 'Discover' }}
+                    <app-icon *ngIf="discoveringJira" name="rotate-ccw" size="12" class="animate-spin"></app-icon>
+                    <span>{{ discoveringJira ? 'Scanning...' : 'Discover' }}</span>
                   </button>
                 </div>
                 <p class="text-[10px] text-slate-400 mt-1">Queries for issues outside this key will be restricted.</p>
               </div>
 
               <!-- Discovered Jira Projects Picker if loaded -->
-              <div *ngIf="discoveredJiraProjects.length > 0" class="space-y-1 max-h-36 overflow-y-auto p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-                <span class="text-[10px] uppercase font-bold text-slate-400 block mb-1">Select from your Jira projects:</span>
-                <div
-                  *ngFor="let jp of discoveredJiraProjects"
-                  (click)="activeMapping.jiraKey = jp.key"
-                  class="p-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 cursor-pointer text-xs flex items-center justify-between"
-                  [ngClass]="activeMapping.jiraKey === jp.key ? 'bg-blue-50 dark:bg-blue-900/30' : ''"
-                >
-                  <span class="font-bold text-slate-800 dark:text-slate-200">{{ jp.key }}</span>
-                  <span class="text-[11px] text-slate-500">{{ jp.name }}</span>
+              <div *ngIf="discoveredJiraProjects.length > 0" class="space-y-2 p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                <span class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 block">
+                  Select from your Jira projects ({{ discoveredJiraProjects.length }} found):
+                </span>
+                <div class="space-y-1 max-h-44 overflow-y-auto pr-1">
+                  <div
+                    *ngFor="let jp of discoveredJiraProjects"
+                    (click)="selectJiraProject(jp)"
+                    class="p-2 rounded-lg border transition-all cursor-pointer text-xs flex items-center justify-between"
+                    [ngClass]="activeMapping.jiraKey === jp.key ? 'bg-blue-50 dark:bg-blue-900/40 border-blue-500 text-blue-600 dark:text-blue-300 font-bold' : 'border-transparent hover:bg-slate-100 dark:hover:bg-slate-700/60 text-slate-800 dark:text-slate-200'"
+                  >
+                    <div class="flex items-center gap-2 min-w-0">
+                      <app-icon *ngIf="activeMapping.jiraKey === jp.key" name="check" size="14" class="text-blue-500 shrink-0"></app-icon>
+                      <span class="font-bold truncate">{{ jp.key }}</span>
+                      <span class="text-[11px] text-slate-500 truncate">{{ jp.name }}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
           <!-- Save Button -->
-          <div class="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800">
+          <div class="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">
+            <span class="text-[11px] text-slate-500 dark:text-slate-400">
+              * Click "Save & Activate Integration" to apply these scopes to {{ selectedProject?.name || 'this project' }}.
+            </span>
             <button
               (click)="saveMapping()"
               [disabled]="savingMapping"
-              class="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-glow-blue flex items-center gap-2 transition-all disabled:opacity-50"
+              class="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-glow-blue flex items-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
             >
-              <app-icon name="check" size="14"></app-icon>
-              <span>{{ savingMapping ? 'Saving...' : 'Save Integration Mapping' }}</span>
+              <app-icon *ngIf="!savingMapping" name="check" size="14"></app-icon>
+              <app-icon *ngIf="savingMapping" name="rotate-ccw" size="14" class="animate-spin"></app-icon>
+              <span>{{ savingMapping ? 'Saving Integration...' : 'Save & Activate Integration' }}</span>
             </button>
           </div>
         </div>
@@ -896,11 +955,23 @@ export class IntegrationsComponent implements OnInit, OnDestroy {
     githubBranch: 'main',
     jiraKey: '',
   };
+  repoFilter: string = '';
+  jiraFilter: string = '';
   discoveredRepos: Array<{ name: string; full_name: string; default_branch: string }> = [];
   discoveredJiraProjects: Array<{ id: string; key: string; name: string }> = [];
   discoveringRepos = false;
   discoveringJira = false;
   savingMapping = false;
+
+  get selectedProject(): Project | undefined {
+    return this.projects.find((p) => p.id === this.selectedProjectId);
+  }
+
+  get filteredDiscoveredRepos(): Array<{ name: string; full_name: string; default_branch: string }> {
+    if (!this.repoFilter.trim()) return this.discoveredRepos;
+    const q = this.repoFilter.toLowerCase().trim();
+    return this.discoveredRepos.filter((r) => r.full_name.toLowerCase().includes(q) || r.name.toLowerCase().includes(q));
+  }
 
   // Modals & Forms
   showGithubModal = false;
@@ -981,19 +1052,53 @@ export class IntegrationsComponent implements OnInit, OnDestroy {
     });
   }
 
+  onProjectChange() {
+    this.loadProjectMapping();
+  }
+
+  cleanRepoInput() {
+    if (!this.activeMapping.githubRepo) return;
+    let val = this.activeMapping.githubRepo.trim();
+    if (val.includes('github.com/')) {
+      val = val.split('github.com/')[1];
+    }
+    val = val.replace(/\.git$/, '').replace(/^\/+|\/+$/g, '');
+    this.activeMapping.githubRepo = val;
+  }
+
+  cleanJiraInput() {
+    if (!this.activeMapping.jiraKey) return;
+    this.activeMapping.jiraKey = this.activeMapping.jiraKey.trim().toUpperCase();
+  }
+
+  selectRepo(repo: { name: string; full_name: string; default_branch: string }) {
+    this.activeMapping.githubRepo = repo.full_name;
+    this.activeMapping.githubBranch = repo.default_branch || 'main';
+  }
+
+  selectJiraProject(proj: { id: string; key: string; name: string }) {
+    this.activeMapping.jiraKey = proj.key;
+  }
+
   loadProjectMapping() {
     if (!this.selectedProjectId) return;
     this.api.getProjectMcpMapping(this.selectedProjectId, 'github').subscribe({
-      next: (map) => {
-        this.activeMapping.githubRepo = map.selected_resources?.[0] || map.external_id || '';
-        this.activeMapping.githubBranch = map.default_branch || 'main';
+      next: (map: any) => {
+        if (map) {
+          const repo = (map.selected_resources && map.selected_resources[0]) || map.external_id || '';
+          this.activeMapping.githubRepo = repo;
+          this.activeMapping.githubBranch = map.default_branch || 'main';
+        }
       },
       error: () => {},
     });
 
     this.api.getProjectMcpMapping(this.selectedProjectId, 'atlassian').subscribe({
-      next: (map) => {
-        this.activeMapping.jiraKey = map.selected_resources?.[0] || '';
+      next: (map: any) => {
+        if (map) {
+          const key = (map.selected_resources && map.selected_resources[0]) || map.external_id || '';
+          this.activeMapping.jiraKey = key;
+        }
       },
       error: () => {},
     });
@@ -1120,11 +1225,12 @@ export class IntegrationsComponent implements OnInit, OnDestroy {
 
   discoverRepos() {
     this.discoveringRepos = true;
-    this.api.getMcpGithubRepos().subscribe({
+    this.cleanRepoInput();
+    this.api.getMcpGithubRepos(this.activeMapping.githubRepo || undefined).subscribe({
       next: (repos) => {
-        this.discoveredRepos = repos;
+        this.discoveredRepos = Array.isArray(repos) ? repos : [];
         this.discoveringRepos = false;
-        this.showToast('success', `Discovered ${repos.length} repositories via GitHub MCP.`);
+        this.showToast('success', `Discovered ${this.discoveredRepos.length} repositories via GitHub MCP.`);
       },
       error: (err) => {
         this.discoveringRepos = false;
@@ -1137,9 +1243,9 @@ export class IntegrationsComponent implements OnInit, OnDestroy {
     this.discoveringJira = true;
     this.api.getMcpJiraProjects().subscribe({
       next: (projs) => {
-        this.discoveredJiraProjects = projs;
+        this.discoveredJiraProjects = Array.isArray(projs) ? projs : [];
         this.discoveringJira = false;
-        this.showToast('success', `Discovered ${projs.length} Jira projects via Atlassian MCP.`);
+        this.showToast('success', `Discovered ${this.discoveredJiraProjects.length} Jira projects via Atlassian MCP.`);
       },
       error: (err) => {
         this.discoveringJira = false;
@@ -1149,42 +1255,37 @@ export class IntegrationsComponent implements OnInit, OnDestroy {
   }
 
   saveMapping() {
-    if (!this.selectedProjectId) return;
+    if (!this.selectedProjectId) {
+      this.showToast('error', 'Please select an internal project first.');
+      return;
+    }
+    this.cleanRepoInput();
+    this.cleanJiraInput();
     this.savingMapping = true;
 
-    // 1. Save GitHub Mapping
-    this.api
-      .saveProjectMcpMapping(this.selectedProjectId, {
-        provider: 'github',
-        external_id: this.activeMapping.githubRepo,
-        selected_resources: this.activeMapping.githubRepo ? [this.activeMapping.githubRepo] : [],
-        default_branch: this.activeMapping.githubBranch || 'main',
-      })
-      .subscribe({
-        next: () => {
-          // 2. Save Atlassian Mapping
-          this.api
-            .saveProjectMcpMapping(this.selectedProjectId, {
-              provider: 'atlassian',
-              external_id: this.activeMapping.jiraKey,
-              selected_resources: this.activeMapping.jiraKey ? [this.activeMapping.jiraKey] : [],
-            })
-            .subscribe({
-              next: () => {
-                this.savingMapping = false;
-                this.showToast('success', 'Project integration mappings saved and isolated successfully!');
-              },
-              error: (err) => {
-                this.savingMapping = false;
-                this.showToast('error', 'Failed to save Jira mapping: ' + (err.error?.detail || err.message));
-              },
-            });
-        },
-        error: (err) => {
-          this.savingMapping = false;
-          this.showToast('error', 'Failed to save GitHub mapping: ' + (err.error?.detail || err.message));
-        },
-      });
+    const payload = {
+      github_repo: this.activeMapping.githubRepo || null,
+      github_branch: this.activeMapping.githubBranch || 'main',
+      jira_key: this.activeMapping.jiraKey || null,
+      jira_project_keys: this.activeMapping.jiraKey ? [this.activeMapping.jiraKey] : [],
+    };
+
+    this.api.saveProjectMcpMapping(this.selectedProjectId, payload).subscribe({
+      next: () => {
+        this.savingMapping = false;
+        const projName = this.selectedProject?.name || 'Project';
+        this.showToast(
+          'success',
+          `Integration Active! ${projName} is now integrated with GitHub (${this.activeMapping.githubRepo || 'none'}) and Jira (${this.activeMapping.jiraKey || 'none'}).`
+        );
+        this.loadProjectMapping();
+        this.loadProjects();
+      },
+      error: (err) => {
+        this.savingMapping = false;
+        this.showToast('error', 'Failed to save integration mapping: ' + (err.error?.detail || err.message));
+      },
+    });
   }
 
   decideApproval(approvalId: string, decision: 'approved' | 'rejected') {

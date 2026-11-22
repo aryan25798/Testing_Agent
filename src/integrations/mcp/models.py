@@ -60,6 +60,11 @@ class ProjectMCPMappingRequest(BaseModel):
     github_branch: Optional[str] = "main"
     jira_host: Optional[str] = None
     jira_project_keys: List[str] = Field(default_factory=list)
+    jira_key: Optional[str] = None
+    provider: Optional[str] = None
+    external_id: Optional[str] = None
+    selected_resources: List[str] = Field(default_factory=list)
+    default_branch: Optional[str] = None
 
 
 class ApprovalDecisionRequest(BaseModel):

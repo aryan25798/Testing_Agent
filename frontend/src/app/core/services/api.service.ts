@@ -229,7 +229,7 @@ export class ApiService {
   }
 
   disconnectMcpServer(serverId: string): Observable<any> {
-    return this.http.post<any>(`${this.baseUrl}/mcp/disconnect/${serverId}`, {});
+    return this.http.post<any>(`${this.baseUrl}/mcp/servers/${serverId}/disconnect`, {});
   }
 
   getMcpTools(provider?: string): Observable<MCPToolInfo[]> {
@@ -238,9 +238,12 @@ export class ApiService {
     return this.http.get<MCPToolInfo[]>(`${this.baseUrl}/mcp/tools`, { params });
   }
 
-  getMcpGithubRepos(): Observable<Array<{ name: string; full_name: string; private: boolean; default_branch: string }>> {
+  getMcpGithubRepos(query?: string): Observable<Array<{ name: string; full_name: string; private: boolean; default_branch: string }>> {
+    let params = new HttpParams();
+    if (query) params = params.set('query', query);
     return this.http.get<Array<{ name: string; full_name: string; private: boolean; default_branch: string }>>(
-      `${this.baseUrl}/mcp/github/repositories`
+      `${this.baseUrl}/mcp/github/repositories`,
+      { params }
     );
   }
 
@@ -255,7 +258,7 @@ export class ApiService {
     return this.http.get<ProjectMCPMapping>(`${this.baseUrl}/mcp/projects/${projectId}/mapping`, { params });
   }
 
-  saveProjectMcpMapping(projectId: string, payload: Partial<ProjectMCPMapping>): Observable<ProjectMCPMapping> {
+  saveProjectMcpMapping(projectId: string, payload: any): Observable<any> {
     return this.http.post<ProjectMCPMapping>(`${this.baseUrl}/mcp/projects/${projectId}/mapping`, payload);
   }
 

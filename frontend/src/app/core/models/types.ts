@@ -230,14 +230,18 @@ export interface MCPToolInfo {
 
 export interface ProjectMCPMapping {
   id?: string;
-  project_id: string;
-  provider: string;
-  external_id: string;
-  selected_resources: string[];
-  default_branch: string;
-  status: string;
+  project_id?: string;
+  provider?: string;
+  external_id?: string;
+  selected_resources?: string[];
+  default_branch?: string;
+  status?: string;
   last_synced_at?: string;
   last_error?: string;
+  github_repo?: string | null;
+  github_branch?: string;
+  jira_key?: string | null;
+  jira_project_keys?: string[];
 }
 
 export interface MCPApprovalRequest {
