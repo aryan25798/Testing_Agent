@@ -58,13 +58,13 @@ import { IconComponent } from '../../shared/components/icon.component';
             <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2 min-h-[32px]">{{ p.description || 'No description provided.' }}</p>
 
             <div class="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 space-y-2 text-xs">
-              <div class="flex items-center justify-between">
-                <span class="text-slate-400">Target URL:</span>
-                <span class="font-mono text-[11px] truncate max-w-[180px] text-blue-600 dark:text-blue-400 font-semibold">{{ p.base_url || 'http://localhost:4200' }}</span>
+              <div class="flex items-center justify-between min-w-0 gap-2">
+                <span class="text-slate-400 shrink-0">Target URL:</span>
+                <span class="font-mono text-[11px] truncate max-w-[60%] text-blue-600 dark:text-blue-400 font-semibold" [title]="p.base_url || 'http://localhost:4200'">{{ p.base_url || 'http://localhost:4200' }}</span>
               </div>
-              <div class="flex items-center justify-between" *ngIf="p.git_repo_url">
-                <span class="text-slate-400">Git Repo:</span>
-                <span class="font-mono text-[11px] truncate max-w-[180px] text-slate-700 dark:text-slate-300">{{ p.git_repo_url }}</span>
+              <div class="flex items-center justify-between min-w-0 gap-2" *ngIf="p.git_repo_url">
+                <span class="text-slate-400 shrink-0">Git Repo:</span>
+                <span class="font-mono text-[11px] truncate max-w-[60%] text-slate-700 dark:text-slate-300" [title]="p.git_repo_url">{{ p.git_repo_url }}</span>
               </div>
             </div>
           </div>
@@ -112,7 +112,7 @@ import { IconComponent } from '../../shared/components/icon.component';
         *ngIf="showModal"
         class="fixed inset-0 z-50 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4"
       >
-        <div class="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800">
+        <div class="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 max-h-[90vh] overflow-y-auto">
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-base font-bold text-slate-900 dark:text-white">
               {{ editingProjectId ? 'Edit Project' : 'Create New QA Project' }}

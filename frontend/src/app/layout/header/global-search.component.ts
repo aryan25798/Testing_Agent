@@ -25,8 +25,8 @@ interface SearchResult {
       (click)="openSearch()"
       class="w-full flex items-center justify-between px-3.5 py-2 text-xs bg-slate-100 hover:bg-slate-200/70 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-500 dark:text-slate-400 rounded-xl border border-transparent focus:border-blue-500 focus:outline-none transition-all cursor-pointer"
     >
-      <div class="flex items-center gap-2.5">
-        <app-icon name="search" size="14" class="text-slate-400 dark:text-slate-500"></app-icon>
+      <div class="flex items-center gap-2 sm:gap-2.5 min-w-0">
+        <app-icon name="search" size="14" class="text-slate-400 dark:text-slate-500 shrink-0"></app-icon>
         <span class="truncate">Search projects, agents, test cases...</span>
       </div>
       <kbd class="hidden sm:inline-flex items-center gap-0.5 px-2 py-0.5 text-[10px] font-mono bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md text-slate-500 dark:text-slate-400 shadow-2xs">

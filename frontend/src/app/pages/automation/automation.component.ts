@@ -57,11 +57,11 @@ import { IconComponent } from '../../shared/components/icon.component';
               'border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700': selectedScript?.id !== s.id
             }"
           >
-            <div class="flex items-center justify-between mb-2">
-              <span class="font-bold text-slate-900 dark:text-white text-xs font-mono truncate max-w-[200px]">
+            <div class="flex items-center justify-between mb-2 min-w-0 gap-2">
+              <span class="font-bold text-slate-900 dark:text-white text-xs font-mono truncate min-w-0 flex-1">
                 {{ s.script_name }}
               </span>
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 uppercase">
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 uppercase shrink-0">
                 {{ s.framework }}
               </span>
             </div>

@@ -9,7 +9,7 @@ import { ThemeService } from './core/services/theme.service';
   standalone: true,
   imports: [RouterOutlet, SidebarComponent, HeaderComponent],
   template: `
-    <div class="flex h-screen overflow-hidden bg-[#f4f7fc] dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors">
+    <div class="flex h-screen h-[100dvh] w-full max-w-full overflow-hidden bg-[#f4f7fc] dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors">
       <!-- Fixed / Collapsible / Mobile Drawer Sidebar -->
       <app-sidebar></app-sidebar>
 
@@ -19,7 +19,7 @@ import { ThemeService } from './core/services/theme.service';
         <app-header></app-header>
 
         <!-- Routed Views Viewport -->
-        <main class="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6">
+        <main class="flex-1 overflow-y-auto overflow-x-hidden min-w-0 px-4 sm:px-6 lg:px-8 py-6">
           <router-outlet></router-outlet>
         </main>
       </div>

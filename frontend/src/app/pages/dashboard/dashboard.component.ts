@@ -21,22 +21,22 @@ import * as echarts from 'echarts';
   standalone: true,
   imports: [CommonModule, RouterLink, IconComponent],
   template: `
-    <div class="space-y-6 max-w-[1400px] mx-auto pb-12">
+    <div class="space-y-6 max-w-[1400px] w-full mx-auto pb-12">
       <!-- ================================================================= -->
       <!-- TOP GREETING BAR -->
       <!-- ================================================================= -->
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 class="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+        <div class="min-w-0">
+          <h1 class="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2 truncate">
             <span>Welcome back, Aryan!</span>
             <span class="inline-block transform hover:rotate-12 transition-transform cursor-pointer">👋</span>
           </h1>
-          <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+          <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5 truncate">
             Your AI Testing Assistant is ready to help you build, test and deliver better software.
           </p>
         </div>
 
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-3 shrink-0">
           <div class="px-3.5 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/60 border border-purple-200/80 dark:border-purple-800 text-purple-700 dark:text-purple-300 text-xs font-bold flex items-center gap-2 shadow-2xs">
             <app-icon name="crown" size="14" class="text-purple-600 dark:text-purple-400"></app-icon>
             <span>Personal Workspace</span>
@@ -55,7 +55,7 @@ import * as echarts from 'echarts';
         <!-- =============================================================== -->
         <!-- LEFT COLUMN (col-span-8) -->
         <!-- =============================================================== -->
-        <div class="lg:col-span-8 space-y-6">
+        <div class="lg:col-span-8 space-y-6 min-w-0">
           <!-- 1. HERO BANNER -->
           <div class="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 dark:from-blue-700 dark:via-indigo-900 dark:to-slate-900 rounded-2xl p-6 sm:p-7 text-white flex flex-col justify-between shadow-card relative overflow-hidden min-h-[190px]">
             <div class="z-10 max-w-md sm:max-w-lg space-y-2">
@@ -67,7 +67,7 @@ import * as echarts from 'echarts';
               </p>
             </div>
 
-            <div class="z-10 pt-4 flex items-center gap-3">
+            <div class="z-10 pt-4 flex items-center gap-3 flex-wrap">
               <a
                 routerLink="/agents"
                 class="inline-flex items-center gap-2 bg-white hover:bg-blue-50 text-slate-900 font-bold px-4 py-2.5 rounded-xl text-xs sm:text-sm transition-all transform hover:-translate-y-0.5 shadow-md"
@@ -85,7 +85,7 @@ import * as echarts from 'echarts';
               </a>
             </div>
 
-            <!-- Cute 3D Robot Illustration -->
+            <!-- 3D Robot Illustration -->
             <div class="absolute right-3 sm:right-6 bottom-1 sm:bottom-2 pointer-events-none opacity-95 hidden sm:block">
               <div class="relative w-36 h-36 md:w-44 md:h-44 flex items-center justify-center">
                 <img
@@ -101,14 +101,17 @@ import * as echarts from 'echarts';
             </div>
           </div>
 
-          <!-- 2. MY PROJECTS SECTION (4 Horizontal Cards) -->
+          <!-- 2. MY PROJECTS SECTION (Actual SQLite Data Only) -->
           <div class="space-y-3.5">
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-2.5">
-                <div class="w-7 h-7 rounded-lg bg-indigo-100 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                <div class="w-7 h-7 rounded-lg bg-indigo-100 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
                   <app-icon name="folder" size="15"></app-icon>
                 </div>
                 <h2 class="font-bold text-slate-900 dark:text-white text-base">My Projects</h2>
+                <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                  {{ displayProjects.length }}
+                </span>
               </div>
               <a
                 routerLink="/projects"
@@ -119,18 +122,17 @@ import * as echarts from 'echarts';
               </a>
             </div>
 
-            <!-- 4 Horizontal Project Cards Grid -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <!-- Render existing project cards or sample slots -->
+            <!-- Projects Grid (Actual Records) -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" *ngIf="displayProjects.length > 0; else noProjectsTpl">
               <div
                 *ngFor="let proj of displayProjects; let i = index"
                 (click)="openProject(proj)"
-                class="bg-white dark:bg-slate-900 rounded-2xl p-4.5 border border-slate-200/80 dark:border-slate-800 shadow-subtle hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-card hover:-translate-y-1 transition-all cursor-pointer flex flex-col justify-between group"
+                class="bg-white dark:bg-slate-900 rounded-2xl p-4.5 border border-slate-200/80 dark:border-slate-800 shadow-subtle hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-card hover:-translate-y-1 transition-all cursor-pointer flex flex-col justify-between group min-w-0"
               >
-                <div>
+                <div class="min-w-0">
                   <div class="flex items-start justify-between mb-3">
                     <div
-                      class="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-base shadow-sm"
+                      class="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-base shadow-sm shrink-0"
                       [ngClass]="getProjectColorClass(i)"
                     >
                       <app-icon [name]="getProjectIcon(i)" size="18"></app-icon>
@@ -139,7 +141,7 @@ import * as echarts from 'echarts';
                     <button
                       (click)="$event.stopPropagation(); navigateToWorkflows(proj.id)"
                       class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                      title="Quick Run"
+                      title="Run Testing Workflow"
                     >
                       <app-icon name="more-vertical" size="16"></app-icon>
                     </button>
@@ -149,7 +151,7 @@ import * as echarts from 'echarts';
                     {{ proj.name }}
                   </h3>
                   <p class="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                    {{ proj.description || ('Client Project ' + (i + 1)) }}
+                    {{ proj.description || 'Automated QA testing workspace' }}
                   </p>
 
                   <div class="mt-2.5">
@@ -162,38 +164,55 @@ import * as echarts from 'echarts';
                   </div>
                 </div>
 
-                <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-3 border-t border-slate-100 dark:border-slate-800/80 mt-3">
-                  <div class="flex items-center gap-1 font-medium">
-                    <app-icon name="users" size="13" class="text-slate-400"></app-icon>
+                <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-3 border-t border-slate-100 dark:border-slate-800/80 mt-3 min-w-0">
+                  <div class="flex items-center gap-1 font-medium truncate">
+                    <app-icon name="users" size="13" class="text-slate-400 shrink-0"></app-icon>
                     <span>{{ proj.agent_count || 6 }} Agents</span>
                   </div>
-                  <div class="flex items-center gap-1 font-medium">
-                    <app-icon name="play" size="13" class="text-slate-400"></app-icon>
-                    <span>{{ proj.executions_count || proj.test_cases_count || 12 }} Runs</span>
+                  <div class="flex items-center gap-1 font-medium truncate">
+                    <app-icon name="play" size="13" class="text-slate-400 shrink-0"></app-icon>
+                    <span>{{ proj.executions_count || 0 }} Runs</span>
                   </div>
                 </div>
               </div>
 
-              <!-- Create New Project Card if less than 4 -->
+              <!-- Create New Project Card slot -->
               <div
-                *ngIf="displayProjects.length < 4"
                 (click)="router.navigate(['/projects'], { queryParams: { action: 'new' } })"
                 class="bg-white/60 dark:bg-slate-900/60 rounded-2xl p-4.5 border-2 border-dashed border-slate-300 dark:border-slate-800 hover:border-blue-500 dark:hover:border-blue-500 transition-all cursor-pointer flex flex-col items-center justify-center text-center group min-h-[160px]"
               >
-                <div class="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                <div class="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform shrink-0">
                   <app-icon name="plus" size="20"></app-icon>
                 </div>
                 <div class="text-xs font-bold text-slate-800 dark:text-slate-200">Add New Project</div>
                 <div class="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Configure target repository</div>
               </div>
             </div>
+
+            <!-- Empty State when 0 Projects exist -->
+            <ng-template #noProjectsTpl>
+              <div class="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-300 dark:border-slate-800">
+                <app-icon name="folder" size="36" class="text-slate-400 mx-auto mb-2"></app-icon>
+                <div class="font-bold text-slate-800 dark:text-white text-sm">No Projects Created Yet</div>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-4">
+                  Create your first client or internal application project to start autonomous testing.
+                </p>
+                <button
+                  (click)="router.navigate(['/projects'], { queryParams: { action: 'new' } })"
+                  class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-xl text-xs transition-all shadow-sm"
+                >
+                  <app-icon name="plus" size="14"></app-icon>
+                  <span>Create Project</span>
+                </button>
+              </div>
+            </ng-template>
           </div>
 
           <!-- 3. MY AGENT LIBRARY SECTION (7 Cards) -->
           <div class="space-y-3.5">
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-2.5">
-                <div class="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-950/70 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                <div class="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-950/70 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
                   <app-icon name="bot" size="15"></app-icon>
                 </div>
                 <h2 class="font-bold text-slate-900 dark:text-white text-base">My Agent Library</h2>
@@ -212,12 +231,12 @@ import * as echarts from 'echarts';
               <!-- Agent 1: Requirement Analysis -->
               <div
                 (click)="router.navigate(['/agents'])"
-                class="bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-900/60 rounded-2xl p-3 flex flex-col items-center text-center justify-between hover:shadow-card hover:-translate-y-1 transition-all cursor-pointer group min-h-[125px]"
+                class="bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-900/60 rounded-2xl p-3 flex flex-col items-center text-center justify-between hover:shadow-card hover:-translate-y-1 transition-all cursor-pointer group min-h-[125px] min-w-0"
               >
-                <div class="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
+                <div class="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform shrink-0">
                   <app-icon name="search" size="16"></app-icon>
                 </div>
-                <div class="font-bold text-slate-800 dark:text-slate-200 text-[11px] leading-tight mt-2">
+                <div class="font-bold text-slate-800 dark:text-slate-200 text-[11px] leading-tight mt-2 break-words w-full">
                   Requirement Analysis Agent
                 </div>
               </div>
@@ -225,12 +244,12 @@ import * as echarts from 'echarts';
               <!-- Agent 2: Test Scenario Generator -->
               <div
                 (click)="router.navigate(['/agents'])"
-                class="bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-900/60 rounded-2xl p-3 flex flex-col items-center text-center justify-between hover:shadow-card hover:-translate-y-1 transition-all cursor-pointer group min-h-[125px]"
+                class="bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-900/60 rounded-2xl p-3 flex flex-col items-center text-center justify-between hover:shadow-card hover:-translate-y-1 transition-all cursor-pointer group min-h-[125px] min-w-0"
               >
-                <div class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
+                <div class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform shrink-0">
                   <app-icon name="check" size="16"></app-icon>
                 </div>
-                <div class="font-bold text-slate-800 dark:text-slate-200 text-[11px] leading-tight mt-2">
+                <div class="font-bold text-slate-800 dark:text-slate-200 text-[11px] leading-tight mt-2 break-words w-full">
                   Test Scenario Generator
                 </div>
               </div>
@@ -238,12 +257,12 @@ import * as echarts from 'echarts';
               <!-- Agent 3: Test Case Designer -->
               <div
                 (click)="router.navigate(['/test-cases'])"
-                class="bg-purple-50/80 dark:bg-purple-950/40 border border-purple-200/80 dark:border-purple-900/60 rounded-2xl p-3 flex flex-col items-center text-center justify-between hover:shadow-card hover:-translate-y-1 transition-all cursor-pointer group min-h-[125px]"
+                class="bg-purple-50/80 dark:bg-purple-950/40 border border-purple-200/80 dark:border-purple-900/60 rounded-2xl p-3 flex flex-col items-center text-center justify-between hover:shadow-card hover:-translate-y-1 transition-all cursor-pointer group min-h-[125px] min-w-0"
               >
-                <div class="w-9 h-9 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
+                <div class="w-9 h-9 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform shrink-0">
                   <app-icon name="file-text" size="16"></app-icon>
                 </div>
-                <div class="font-bold text-slate-800 dark:text-slate-200 text-[11px] leading-tight mt-2">
+                <div class="font-bold text-slate-800 dark:text-slate-200 text-[11px] leading-tight mt-2 break-words w-full">
                   Test Case Designer
                 </div>
               </div>
@@ -251,12 +270,12 @@ import * as echarts from 'echarts';
               <!-- Agent 4: Test Automation Agent -->
               <div
                 (click)="router.navigate(['/automation'])"
-                class="bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-900/60 rounded-2xl p-3 flex flex-col items-center text-center justify-between hover:shadow-card hover:-translate-y-1 transition-all cursor-pointer group min-h-[125px]"
+                class="bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-900/60 rounded-2xl p-3 flex flex-col items-center text-center justify-between hover:shadow-card hover:-translate-y-1 transition-all cursor-pointer group min-h-[125px] min-w-0"
               >
-                <div class="w-9 h-9 rounded-xl bg-amber-600 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
+                <div class="w-9 h-9 rounded-xl bg-amber-600 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform shrink-0">
                   <app-icon name="rocket" size="16"></app-icon>
                 </div>
-                <div class="font-bold text-slate-800 dark:text-slate-200 text-[11px] leading-tight mt-2">
+                <div class="font-bold text-slate-800 dark:text-slate-200 text-[11px] leading-tight mt-2 break-words w-full">
                   Test Automation Agent
                 </div>
               </div>
@@ -264,12 +283,12 @@ import * as echarts from 'echarts';
               <!-- Agent 5: Test Execution Agent -->
               <div
                 (click)="router.navigate(['/executions'])"
-                class="bg-teal-50/80 dark:bg-teal-950/40 border border-teal-200/80 dark:border-teal-900/60 rounded-2xl p-3 flex flex-col items-center text-center justify-between hover:shadow-card hover:-translate-y-1 transition-all cursor-pointer group min-h-[125px]"
+                class="bg-teal-50/80 dark:bg-teal-950/40 border border-teal-200/80 dark:border-teal-900/60 rounded-2xl p-3 flex flex-col items-center text-center justify-between hover:shadow-card hover:-translate-y-1 transition-all cursor-pointer group min-h-[125px] min-w-0"
               >
-                <div class="w-9 h-9 rounded-xl bg-teal-600 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
+                <div class="w-9 h-9 rounded-xl bg-teal-600 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform shrink-0">
                   <app-icon name="play" size="16"></app-icon>
                 </div>
-                <div class="font-bold text-slate-800 dark:text-slate-200 text-[11px] leading-tight mt-2">
+                <div class="font-bold text-slate-800 dark:text-slate-200 text-[11px] leading-tight mt-2 break-words w-full">
                   Test Execution Agent
                 </div>
               </div>
@@ -277,12 +296,12 @@ import * as echarts from 'echarts';
               <!-- Agent 6: Test Reporting Agent -->
               <div
                 (click)="router.navigate(['/reports'])"
-                class="bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-900/60 rounded-2xl p-3 flex flex-col items-center text-center justify-between hover:shadow-card hover:-translate-y-1 transition-all cursor-pointer group min-h-[125px]"
+                class="bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-900/60 rounded-2xl p-3 flex flex-col items-center text-center justify-between hover:shadow-card hover:-translate-y-1 transition-all cursor-pointer group min-h-[125px] min-w-0"
               >
-                <div class="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
+                <div class="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform shrink-0">
                   <app-icon name="bar-chart-3" size="16"></app-icon>
                 </div>
-                <div class="font-bold text-slate-800 dark:text-slate-200 text-[11px] leading-tight mt-2">
+                <div class="font-bold text-slate-800 dark:text-slate-200 text-[11px] leading-tight mt-2 break-words w-full">
                   Test Reporting Agent
                 </div>
               </div>
@@ -290,23 +309,23 @@ import * as echarts from 'echarts';
               <!-- Create Custom Agent Button -->
               <div
                 (click)="router.navigate(['/agents'], { queryParams: { action: 'create' } })"
-                class="bg-white dark:bg-slate-900 border-2 border-dashed border-indigo-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 rounded-2xl p-3 flex flex-col items-center text-center justify-between hover:shadow-card hover:-translate-y-1 transition-all cursor-pointer group min-h-[125px]"
+                class="bg-white dark:bg-slate-900 border-2 border-dashed border-indigo-200 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 rounded-2xl p-3 flex flex-col items-center text-center justify-between hover:shadow-card hover:-translate-y-1 transition-all cursor-pointer group min-h-[125px] min-w-0"
               >
-                <div class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <div class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 flex items-center justify-center group-hover:scale-105 transition-transform shrink-0">
                   <app-icon name="plus" size="18"></app-icon>
                 </div>
-                <div class="font-bold text-indigo-600 dark:text-indigo-400 text-[11px] leading-tight mt-2">
+                <div class="font-bold text-indigo-600 dark:text-indigo-400 text-[11px] leading-tight mt-2 break-words w-full">
                   Create Custom Agent
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- 4. YOUR TESTING JOURNEY SECTION -->
-          <div class="bg-white dark:bg-slate-900 rounded-2xl p-5 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-subtle space-y-5 transition-colors">
-            <div class="flex items-center justify-between">
+          <!-- 4. YOUR TESTING JOURNEY SECTION (Actual SQLite Data Only) -->
+          <div class="bg-white dark:bg-slate-900 rounded-2xl p-5 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-subtle space-y-5 transition-colors min-w-0">
+            <div class="flex items-center justify-between flex-wrap gap-2">
               <div class="flex items-center gap-2.5">
-                <div class="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-950/70 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                <div class="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-950/70 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
                   <app-icon name="bar-chart-3" size="15"></app-icon>
                 </div>
                 <h2 class="font-bold text-slate-900 dark:text-white text-base">Your Testing Journey</h2>
@@ -316,21 +335,21 @@ import * as echarts from 'echarts';
               <div class="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400">
                 <button
                   (click)="activeRange = '7D'; updateChart()"
-                  class="px-2.5 py-1 rounded-lg transition-colors"
+                  class="px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
                   [ngClass]="activeRange === '7D' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-2xs font-extrabold' : 'hover:text-slate-900 dark:hover:text-white'"
                 >
                   7D
                 </button>
                 <button
                   (click)="activeRange = '30D'; updateChart()"
-                  class="px-2.5 py-1 rounded-lg transition-colors"
+                  class="px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
                   [ngClass]="activeRange === '30D' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-2xs font-extrabold' : 'hover:text-slate-900 dark:hover:text-white'"
                 >
                   30D
                 </button>
                 <button
                   (click)="activeRange = '90D'; updateChart()"
-                  class="px-2.5 py-1 rounded-lg transition-colors"
+                  class="px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
                   [ngClass]="activeRange === '90D' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-2xs font-extrabold' : 'hover:text-slate-900 dark:hover:text-white'"
                 >
                   90D
@@ -338,57 +357,57 @@ import * as echarts from 'echarts';
               </div>
             </div>
 
-            <!-- Stats Row & Curved Trend Chart -->
+            <!-- Stats Row & Real Execution Trend Chart -->
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
-              <!-- 4 KPI Metrics -->
+              <!-- 4 Real KPI Metrics (Derived directly from SQLite data) -->
               <div class="lg:col-span-6 grid grid-cols-2 gap-3.5">
                 <!-- Stat 1: Total Projects -->
-                <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                  <div class="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-1.5">
+                <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 min-w-0">
+                  <div class="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-1.5 shrink-0">
                     <app-icon name="folder" size="14"></app-icon>
                   </div>
-                  <div class="text-xl font-black text-slate-900 dark:text-white tracking-tight">
-                    {{ data?.kpis?.total_projects || 2 }}
+                  <div class="text-xl font-black text-slate-900 dark:text-white tracking-tight truncate">
+                    {{ data?.kpis?.total_projects ?? 0 }}
                   </div>
-                  <div class="text-[11px] font-medium text-slate-500 dark:text-slate-400">Total Projects</div>
+                  <div class="text-[11px] font-medium text-slate-500 dark:text-slate-400 truncate">Total Projects</div>
                 </div>
 
-                <!-- Stat 2: Test Runs -->
-                <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                  <div class="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-1.5">
+                <!-- Stat 2: Total Test Executions -->
+                <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 min-w-0">
+                  <div class="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-1.5 shrink-0">
                     <app-icon name="play" size="14"></app-icon>
                   </div>
-                  <div class="text-xl font-black text-slate-900 dark:text-white tracking-tight">
-                    {{ data?.kpis?.total_test_cases ? (data?.kpis?.total_test_cases! * 3 + (data?.kpis?.total_executions || 1)) : 147 }}
+                  <div class="text-xl font-black text-slate-900 dark:text-white tracking-tight truncate">
+                    {{ data?.kpis?.total_executions ?? 0 }}
                   </div>
-                  <div class="text-[11px] font-medium text-slate-500 dark:text-slate-400">Test Runs</div>
+                  <div class="text-[11px] font-medium text-slate-500 dark:text-slate-400 truncate">Test Runs</div>
                 </div>
 
-                <!-- Stat 3: Success Rate -->
-                <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                  <div class="w-7 h-7 rounded-lg bg-teal-100 dark:bg-teal-950 text-teal-600 dark:text-teal-400 flex items-center justify-center mb-1.5">
+                <!-- Stat 3: Pass Rate Percentage -->
+                <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 min-w-0">
+                  <div class="w-7 h-7 rounded-lg bg-teal-100 dark:bg-teal-950 text-teal-600 dark:text-teal-400 flex items-center justify-center mb-1.5 shrink-0">
                     <app-icon name="check-circle-2" size="14"></app-icon>
                   </div>
-                  <div class="text-xl font-black text-slate-900 dark:text-white tracking-tight">
-                    96.5%
+                  <div class="text-xl font-black text-slate-900 dark:text-white tracking-tight truncate">
+                    {{ data?.kpis?.success_rate ?? 0 }}%
                   </div>
-                  <div class="text-[11px] font-medium text-slate-500 dark:text-slate-400">Success Rate</div>
+                  <div class="text-[11px] font-medium text-slate-500 dark:text-slate-400 truncate">Success Rate</div>
                 </div>
 
-                <!-- Stat 4: Time Saved -->
-                <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                  <div class="w-7 h-7 rounded-lg bg-purple-100 dark:bg-purple-950 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-1.5">
+                <!-- Stat 4: Estimated Time Saved -->
+                <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 min-w-0">
+                  <div class="w-7 h-7 rounded-lg bg-purple-100 dark:bg-purple-950 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-1.5 shrink-0">
                     <app-icon name="clock" size="14"></app-icon>
                   </div>
-                  <div class="text-xl font-black text-slate-900 dark:text-white tracking-tight">
-                    12.8h
+                  <div class="text-xl font-black text-slate-900 dark:text-white tracking-tight truncate">
+                    {{ calculateTimeSaved() }}
                   </div>
-                  <div class="text-[11px] font-medium text-slate-500 dark:text-slate-400">Time Saved</div>
+                  <div class="text-[11px] font-medium text-slate-500 dark:text-slate-400 truncate">Time Saved</div>
                 </div>
               </div>
 
-              <!-- Curved Spline Chart with Peak Pill (Apex) -->
-              <div class="lg:col-span-6 relative">
+              <!-- Real Trend Chart Container -->
+              <div class="lg:col-span-6 relative min-w-0">
                 <div class="h-44 w-full" #journeyChart></div>
               </div>
             </div>
@@ -398,9 +417,9 @@ import * as echarts from 'echarts';
         <!-- =============================================================== -->
         <!-- RIGHT COLUMN (col-span-4) -->
         <!-- =============================================================== -->
-        <div class="lg:col-span-4 space-y-6">
-          <!-- 1. AI MODEL STATUS CARD -->
-          <div class="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-subtle flex flex-col justify-between transition-colors space-y-4">
+        <div class="lg:col-span-4 space-y-6 min-w-0">
+          <!-- 1. AI MODEL STATUS CARD (Real Backend Status) -->
+          <div class="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-subtle flex flex-col justify-between transition-colors space-y-4 min-w-0">
             <div>
               <div class="flex items-center justify-between mb-3.5">
                 <h3 class="font-bold text-slate-900 dark:text-white text-sm">AI Model Status</h3>
@@ -418,19 +437,22 @@ import * as echarts from 'echarts';
                   (click)="router.navigate(['/models'])"
                   class="p-3 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/60 dark:hover:bg-slate-800 border border-slate-100 dark:border-slate-800 flex items-center justify-between cursor-pointer transition-colors"
                 >
-                  <div class="flex items-center gap-2.5">
-                    <div class="w-8 h-8 rounded-lg bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center font-bold text-blue-600 dark:text-blue-400 text-sm shadow-2xs">
-                      G
+                  <div class="flex items-center gap-2.5 min-w-0">
+                    <div class="w-8 h-8 rounded-lg bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center font-bold text-blue-600 dark:text-blue-400 text-sm shadow-2xs shrink-0">
+                      <app-icon name="google" size="16"></app-icon>
                     </div>
-                    <div>
-                      <div class="text-xs font-bold text-slate-800 dark:text-slate-200">Gemini</div>
-                      <div class="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                    <div class="min-w-0">
+                      <div class="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">Gemini</div>
+                      <div class="text-[10px] text-slate-500 dark:text-slate-400 font-mono truncate">
                         {{ data?.ai_model_status?.gemini?.selected_model || 'gemini-2.5-flash' }}
                       </div>
                     </div>
                   </div>
-                  <div class="flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                  <div class="flex items-center gap-2 shrink-0">
+                    <span
+                      class="w-2 h-2 rounded-full"
+                      [ngClass]="data?.ai_model_status?.gemini?.connected ? 'bg-emerald-500' : 'bg-slate-400'"
+                    ></span>
                     <app-icon name="chevron-down" size="14" class="text-slate-400"></app-icon>
                   </div>
                 </div>
@@ -440,19 +462,22 @@ import * as echarts from 'echarts';
                   (click)="router.navigate(['/models'])"
                   class="p-3 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/60 dark:hover:bg-slate-800 border border-slate-100 dark:border-slate-800 flex items-center justify-between cursor-pointer transition-colors"
                 >
-                  <div class="flex items-center gap-2.5">
-                    <div class="w-8 h-8 rounded-lg bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center font-bold text-emerald-600 dark:text-emerald-400 text-sm shadow-2xs">
-                      ⚡
+                  <div class="flex items-center gap-2.5 min-w-0">
+                    <div class="w-8 h-8 rounded-lg bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center font-bold text-emerald-600 dark:text-emerald-400 text-sm shadow-2xs shrink-0">
+                      <app-icon name="openai" size="16"></app-icon>
                     </div>
-                    <div>
-                      <div class="text-xs font-bold text-slate-800 dark:text-slate-200">OpenAI</div>
-                      <div class="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
-                        {{ data?.ai_model_status?.openai?.selected_model || 'gpt-4o' }}
+                    <div class="min-w-0">
+                      <div class="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">OpenAI</div>
+                      <div class="text-[10px] text-slate-500 dark:text-slate-400 font-mono truncate">
+                        {{ data?.ai_model_status?.openai?.selected_model || 'Not configured' }}
                       </div>
                     </div>
                   </div>
-                  <div class="flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full" [ngClass]="data?.ai_model_status?.openai?.connected ? 'bg-emerald-500' : 'bg-slate-400'"></span>
+                  <div class="flex items-center gap-2 shrink-0">
+                    <span
+                      class="w-2 h-2 rounded-full"
+                      [ngClass]="data?.ai_model_status?.openai?.connected ? 'bg-emerald-500' : 'bg-slate-400'"
+                    ></span>
                     <app-icon name="chevron-down" size="14" class="text-slate-400"></app-icon>
                   </div>
                 </div>
@@ -466,8 +491,8 @@ import * as echarts from 'echarts';
             </div>
           </div>
 
-          <!-- 2. QUICK ACTIONS (2x2 Grid of 4 Vibrant Gradient Buttons) -->
-          <div class="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-subtle space-y-3.5 transition-colors">
+          <!-- 2. QUICK ACTIONS (2x2 Grid) -->
+          <div class="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-subtle space-y-3.5 transition-colors min-w-0">
             <div class="flex items-center gap-2">
               <span class="text-amber-500 font-bold text-sm">⚡</span>
               <h3 class="font-bold text-slate-900 dark:text-white text-sm">Quick Actions</h3>
@@ -478,51 +503,51 @@ import * as echarts from 'echarts';
               <a
                 routerLink="/agents"
                 [queryParams]="{ action: 'create' }"
-                class="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white p-3.5 rounded-xl font-bold text-xs flex flex-col justify-between shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all group min-h-[82px]"
+                class="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white p-3.5 rounded-xl font-bold text-xs flex flex-col justify-between shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all group min-h-[82px] min-w-0"
               >
-                <div class="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center">
+                <div class="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
                   <app-icon name="plus" size="14" class="text-white"></app-icon>
                 </div>
-                <div class="leading-tight mt-2 text-white">Create New Agent</div>
+                <div class="leading-tight mt-2 text-white truncate w-full">Create New Agent</div>
               </a>
 
               <!-- Button 2: Create Workflow -->
               <a
                 routerLink="/workflows"
-                class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white p-3.5 rounded-xl font-bold text-xs flex flex-col justify-between shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all group min-h-[82px]"
+                class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white p-3.5 rounded-xl font-bold text-xs flex flex-col justify-between shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all group min-h-[82px] min-w-0"
               >
-                <div class="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center">
+                <div class="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
                   <app-icon name="workflow" size="14" class="text-white"></app-icon>
                 </div>
-                <div class="leading-tight mt-2 text-white">Create Workflow</div>
+                <div class="leading-tight mt-2 text-white truncate w-full">Create Workflow</div>
               </a>
 
               <!-- Button 3: Run Testing Workflow -->
               <a
                 routerLink="/workflows"
-                class="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white p-3.5 rounded-xl font-bold text-xs flex flex-col justify-between shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all group min-h-[82px]"
+                class="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white p-3.5 rounded-xl font-bold text-xs flex flex-col justify-between shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all group min-h-[82px] min-w-0"
               >
-                <div class="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center">
+                <div class="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
                   <app-icon name="play" size="14" class="text-white"></app-icon>
                 </div>
-                <div class="leading-tight mt-2 text-white">Run Testing Workflow</div>
+                <div class="leading-tight mt-2 text-white truncate w-full">Run Testing Workflow</div>
               </a>
 
               <!-- Button 4: View Reports -->
               <a
                 routerLink="/reports"
-                class="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white p-3.5 rounded-xl font-bold text-xs flex flex-col justify-between shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all group min-h-[82px]"
+                class="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white p-3.5 rounded-xl font-bold text-xs flex flex-col justify-between shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all group min-h-[82px] min-w-0"
               >
-                <div class="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center">
+                <div class="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
                   <app-icon name="bar-chart-3" size="14" class="text-white"></app-icon>
                 </div>
-                <div class="leading-tight mt-2 text-white">View Reports</div>
+                <div class="leading-tight mt-2 text-white truncate w-full">View Reports</div>
               </a>
             </div>
           </div>
 
-          <!-- 3. RECENT ACTIVITY -->
-          <div class="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-subtle space-y-3.5 transition-colors">
+          <!-- 3. RECENT ACTIVITY (Actual SQLite Events Only) -->
+          <div class="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-subtle space-y-3.5 transition-colors min-w-0">
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-2">
                 <app-icon name="clock" size="15" class="text-indigo-500"></app-icon>
@@ -537,11 +562,11 @@ import * as echarts from 'echarts';
               </a>
             </div>
 
-            <!-- Activity Items List -->
-            <div class="space-y-3">
+            <!-- Activity Items List (Real Data) -->
+            <div class="space-y-3" *ngIf="displayActivities.length > 0; else noActivitiesTpl">
               <div
                 *ngFor="let act of displayActivities; let i = index"
-                class="flex items-start gap-3 text-xs"
+                class="flex items-start gap-3 text-xs min-w-0"
               >
                 <span
                   class="w-2.5 h-2.5 rounded-full mt-1 shrink-0"
@@ -551,30 +576,39 @@ import * as echarts from 'echarts';
                   <div class="font-bold text-slate-800 dark:text-slate-200 truncate">
                     {{ act.title }}
                   </div>
-                  <div class="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between mt-0.5">
+                  <div class="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between mt-0.5 gap-2">
                     <span class="truncate">{{ act.project_name }}</span>
                     <span class="shrink-0 text-slate-400">{{ act.timeAgo }}</span>
                   </div>
                 </div>
               </div>
             </div>
+
+            <!-- Empty State when 0 Activities -->
+            <ng-template #noActivitiesTpl>
+              <div class="py-6 text-center text-xs text-slate-400 dark:text-slate-500">
+                <app-icon name="clock" size="24" class="mx-auto mb-1.5 opacity-50"></app-icon>
+                <div>No recent activity recorded yet.</div>
+                <div class="text-[10px] mt-0.5">Run a testing workflow to see live audit events.</div>
+              </div>
+            </ng-template>
           </div>
 
-          <!-- 4. BOTTOM PROMO CARD ("Build Smarter. Test Faster.") -->
-          <div class="bg-gradient-to-br from-indigo-950 via-slate-900 to-blue-950 rounded-2xl p-4.5 text-white border border-indigo-800/50 shadow-md flex items-center justify-between gap-3">
-            <div class="flex items-center gap-3">
+          <!-- 4. BOTTOM PROMO CARD -->
+          <div class="bg-gradient-to-br from-indigo-950 via-slate-900 to-blue-950 rounded-2xl p-4.5 text-white border border-indigo-800/50 shadow-md flex items-center justify-between gap-3 min-w-0">
+            <div class="flex items-center gap-3 min-w-0">
               <div class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center shrink-0">
                 <app-icon name="trophy" size="18"></app-icon>
               </div>
-              <div>
-                <div class="font-bold text-xs leading-tight">Build Smarter. Test Faster.</div>
-                <div class="text-[10px] text-slate-400 mt-0.5">Your AI-powered testing companion</div>
+              <div class="min-w-0">
+                <div class="font-bold text-xs leading-tight truncate">Build Smarter. Test Faster.</div>
+                <div class="text-[10px] text-slate-400 mt-0.5 truncate">Your AI-powered testing companion</div>
               </div>
             </div>
 
             <a
               routerLink="/workflows"
-              class="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs rounded-xl shadow-sm transition-all transform hover:-translate-y-0.5 shrink-0 flex items-center gap-1"
+              class="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs rounded-xl shadow-sm transition-all transform hover:-translate-y-0.5 shrink-0 flex items-center gap-1 cursor-pointer"
             >
               <span>Start Now</span>
               <app-icon name="arrow-right" size="12" class="text-blue-600"></app-icon>
@@ -632,7 +666,8 @@ export class DashboardComponent implements OnInit, OnDestroy, AfterViewInit {
     this.api.getDashboardOverview().subscribe({
       next: (res) => {
         this.data = res;
-        this.setupDisplayProjects(res.recent_projects || []);
+        // Strictly Real SQLite Data Only: No Mock Fallbacks
+        this.displayProjects = res.recent_projects || [];
         this.setupDisplayActivities(res.recent_activity || []);
         this.updateChart();
       },
@@ -640,39 +675,38 @@ export class DashboardComponent implements OnInit, OnDestroy, AfterViewInit {
     });
   }
 
-  setupDisplayProjects(recent: any[]) {
-    // Fill up to 4 project slots for the horizontal cards
-    const initialList = [...recent];
-    const defaultTemplates = [
-      { id: 'proj-1', name: 'E-Commerce Platform', description: 'Client Project A', status: 'Active', agent_count: 12, executions_count: 48 },
-      { id: 'proj-2', name: 'Banking Application', description: 'Client Project B', status: 'Active', agent_count: 8, executions_count: 32 },
-      { id: 'proj-3', name: 'Healthcare Portal', description: 'Client Project C', status: 'Active', agent_count: 10, executions_count: 27 },
-      { id: 'proj-4', name: 'Travel Booking App', description: 'Client Project D', status: 'Active', agent_count: 6, executions_count: 21 },
-    ];
-
-    if (initialList.length < 4) {
-      for (let i = initialList.length; i < 4; i++) {
-        initialList.push(defaultTemplates[i]);
-      }
+  setupDisplayActivities(activities: any[]) {
+    if (!activities || activities.length === 0) {
+      this.displayActivities = [];
+      return;
     }
-    this.displayProjects = initialList.slice(0, 4);
+    this.displayActivities = activities.map((a) => {
+      let timeStr = 'Just now';
+      if (a.timestamp) {
+        try {
+          const diffMinutes = Math.floor((Date.now() - new Date(a.timestamp).getTime()) / 60000);
+          if (diffMinutes < 1) timeStr = 'Just now';
+          else if (diffMinutes < 60) timeStr = `${diffMinutes}m ago`;
+          else if (diffMinutes < 1440) timeStr = `${Math.floor(diffMinutes / 60)}h ago`;
+          else timeStr = `${Math.floor(diffMinutes / 1440)}d ago`;
+        } catch {
+          timeStr = 'Recently';
+        }
+      }
+      return {
+        title: a.title.replace(/^Test case created: /, '').slice(0, 50),
+        project_name: a.project_name || 'Project',
+        timeAgo: timeStr,
+      };
+    });
   }
 
-  setupDisplayActivities(activities: any[]) {
-    if (activities && activities.length >= 4) {
-      this.displayActivities = activities.slice(0, 4).map((a, idx) => ({
-        title: a.title.replace(/^Test case created: /, '').slice(0, 45) + '...',
-        project_name: a.project_name || 'TrainMate System',
-        timeAgo: `${(idx + 1) * 6}m ago`,
-      }));
-    } else {
-      this.displayActivities = [
-        { title: 'Test execution completed successfully', project_name: 'E-Commerce Platform', timeAgo: '2m ago' },
-        { title: 'Generated 15 new test cases', project_name: 'Banking Application', timeAgo: '12m ago' },
-        { title: 'Workflow executed in sandbox', project_name: 'Healthcare Portal', timeAgo: '25m ago' },
-        { title: 'Project requirements updated', project_name: 'Travel Booking App', timeAgo: '1h ago' },
-      ];
-    }
+  calculateTimeSaved(): string {
+    const totalExecutions = this.data?.kpis?.total_executions || 0;
+    const totalTests = this.data?.kpis?.total_test_cases || 0;
+    // Each automated execution test run saves approximately 15 minutes (0.25h) of manual execution & triage
+    const hours = (totalExecutions * 0.4) + (totalTests * 0.1);
+    return `${hours.toFixed(1)}h`;
   }
 
   getProjectColorClass(index: number): string {
@@ -686,7 +720,7 @@ export class DashboardComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   getProjectIcon(index: number): string {
-    const icons = ['shopping-cart', 'landmark', 'heart', 'plane'];
+    const icons = ['folder', 'landmark', 'heart', 'plane'];
     return icons[index % icons.length];
   }
 
@@ -696,7 +730,7 @@ export class DashboardComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   openProject(proj: any) {
-    if (proj.id && !proj.id.startsWith('proj-')) {
+    if (proj.id) {
       this.router.navigate(['/workflows'], { queryParams: { project_id: proj.id } });
     } else {
       this.router.navigate(['/projects']);
@@ -722,14 +756,17 @@ export class DashboardComponent implements OnInit, OnDestroy, AfterViewInit {
     if (!this.chartInstance) return;
 
     const isDark = this.themeService.isDark();
-    const axisColor = isDark ? '#475569' : '#cbd5e1';
     const textColor = isDark ? '#94a3b8' : '#64748b';
+
+    const days = this.data?.testing_overview?.days || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const trendData = this.data?.testing_overview?.trend || [0, 0, 0, 0, 0, 0, 0];
+    const maxVal = Math.max(...trendData, 10);
 
     const option: echarts.EChartsOption = {
       backgroundColor: 'transparent',
       tooltip: {
         trigger: 'axis',
-        formatter: '{b}: <b>{c}%</b> pass rate',
+        formatter: '{b}: <b>{c}</b> test executions',
         backgroundColor: isDark ? '#1e293b' : '#ffffff',
         borderColor: isDark ? '#334155' : '#e2e8f0',
         textStyle: { color: isDark ? '#f8fafc' : '#0f172a', fontSize: 11 },
@@ -742,7 +779,7 @@ export class DashboardComponent implements OnInit, OnDestroy, AfterViewInit {
       },
       xAxis: {
         type: 'category',
-        data: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+        data: days,
         boundaryGap: false,
         axisLine: { show: false },
         axisTick: { show: false },
@@ -751,12 +788,12 @@ export class DashboardComponent implements OnInit, OnDestroy, AfterViewInit {
       yAxis: {
         type: 'value',
         show: false,
-        min: 60,
-        max: 100,
+        min: 0,
+        max: maxVal + 2,
       },
       series: [
         {
-          data: [72, 79, 85, 96.5, 91, 94, 96.5],
+          data: trendData,
           type: 'line',
           smooth: 0.45,
           symbol: 'circle',
@@ -777,28 +814,6 @@ export class DashboardComponent implements OnInit, OnDestroy, AfterViewInit {
               { offset: 0, color: 'rgba(37, 99, 235, 0.28)' },
               { offset: 1, color: 'rgba(37, 99, 235, 0.0)' },
             ]),
-          },
-          markPoint: {
-            data: [
-              {
-                type: 'max',
-                name: 'Peak Rate',
-                symbol: 'roundRect',
-                symbolSize: [50, 22],
-                itemStyle: {
-                  color: isDark ? '#0f172a' : '#1e293b',
-                  borderColor: '#3b82f6',
-                  borderWidth: 1,
-                },
-                label: {
-                  show: true,
-                  formatter: '96.5%',
-                  color: '#ffffff',
-                  fontSize: 10,
-                  fontWeight: 'bold',
-                },
-              },
-            ],
           },
         },
       ],

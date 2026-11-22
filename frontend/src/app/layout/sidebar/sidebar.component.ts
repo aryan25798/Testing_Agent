@@ -16,13 +16,13 @@ import { IconComponent } from '../../shared/components/icon.component';
       class="fixed inset-0 bg-slate-950/70 z-40 lg:hidden backdrop-blur-sm transition-opacity"
     ></div>
 
-    <!-- Sidebar Container (Fixed h-screen with flex-col: Header -> Scrollable Nav -> Pinned Footer) -->
+    <!-- Sidebar Container (Fixed h-full with flex-col: Header -> Scrollable Nav -> Pinned Footer) -->
     <aside
       [class.translate-x-0]="sidebarService.isMobileOpen()"
       [class.-translate-x-full]="!sidebarService.isMobileOpen()"
       [class.lg:w-64]="!sidebarService.isCollapsed()"
       [class.lg:w-20]="sidebarService.isCollapsed()"
-      class="fixed top-0 bottom-0 left-0 z-50 h-screen w-64 sidebar-bg text-slate-300 flex flex-col justify-between transition-all duration-300 ease-in-out lg:translate-x-0 lg:static lg:z-auto border-r border-slate-800/80 shadow-2xl lg:shadow-none overflow-hidden"
+      class="fixed top-0 bottom-0 left-0 z-50 h-[100dvh] lg:h-full w-64 sidebar-bg text-slate-300 flex flex-col justify-between transition-all duration-300 ease-in-out lg:translate-x-0 lg:static lg:z-auto border-r border-slate-800/80 shadow-2xl lg:shadow-none overflow-hidden"
     >
       <!-- 1. Brand Header (Pinned at Top, Exact h-16 to align seamlessly with Top Navbar) -->
       <div
@@ -222,15 +222,15 @@ import { IconComponent } from '../../shared/components/icon.component';
 
       <!-- 3. Bottom Pinned Section (ALWAYS 100% VISIBLE: shrink-0 with border-t) -->
       <div
-        class="shrink-0 py-3 border-t border-slate-800/80 bg-[#070e1e]/90 space-y-2 transition-all duration-300"
+        class="shrink-0 py-2.5 border-t border-slate-800/80 bg-[#070e1e]/90 space-y-1.5 transition-all duration-300"
         [class.px-3]="!sidebarService.isCollapsed()"
         [class.px-2]="sidebarService.isCollapsed()"
       >
         <!-- System Online Status Pill -->
         <div
           class="rounded-xl bg-slate-900/90 border border-slate-800/80 flex items-center"
-          [class.p-2.5]="!sidebarService.isCollapsed()"
-          [class.p-2]="sidebarService.isCollapsed()"
+          [class.p-2]="!sidebarService.isCollapsed()"
+          [class.p-1.5]="sidebarService.isCollapsed()"
           [class.justify-between]="!sidebarService.isCollapsed()"
           [class.justify-center]="sidebarService.isCollapsed()"
           [title]="sidebarService.isCollapsed() ? 'System Online (All systems operational)' : ''"
