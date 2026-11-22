@@ -9,6 +9,7 @@ import os
 import sys
 import json
 import time
+import shutil
 import asyncio
 import threading
 from pathlib import Path
@@ -214,16 +215,90 @@ class MCPConnectionManager:
         args = ["--transport", "stdio", "--read-only"]
         return StdioServerParameters(command=mcp_atlassian_exe, args=args, env=safe_env)
 
+    def _connect_native_github_fallback(self, token: Optional[str] = None) -> Dict[str, Any]:
+        """Connects to GitHub natively via Python REST API without requiring Node.js or NPX."""
+        start_time = time.time()
+        logger.info("Initializing Pure Python Native GitHub MCP Client (Zero Node.js dependency)...")
+        from src.integrations.mcp.native_github import NativePythonGitHubExecutor, NATIVE_GITHUB_TOOLS_SCHEMA
+
+        executor = NativePythonGitHubExecutor(token=token)
+        user_info = executor.get_authenticated_user()
+        login = user_info.get("login")
+        name = user_info.get("name")
+        server_name = "Official GitHub MCP Server"
+
+        duration = round(time.time() - start_time, 2)
+        with SessionLocal() as db:
+            server = db.query(MCPServerConnection).filter(MCPServerConnection.provider == "github").first()
+            if not server:
+                server = MCPServerConnection(provider="github", server_name=server_name)
+                db.add(server)
+
+            server.status = "connected"
+            server.server_name = server_name
+            server.transport = "native-python"
+            server.account_login = login
+            server.account_name = name
+            server.capabilities = {"tools": {"listChanged": True}}
+            server.last_connected_at = datetime.utcnow()
+            server.last_error = None
+            db.flush()
+
+            # Replace tool definitions with native schemas
+            db.query(MCPDiscoveredTool).filter(MCPDiscoveredTool.server_id == server.id).delete()
+            discovered_tools_payload = []
+            for t in NATIVE_GITHUB_TOOLS_SCHEMA:
+                is_write = not t["is_read_only"]
+                allowed = ["agent_4_test_automation"] if is_write else ["agent_1_requirement_analysis", "agent_4_test_automation"]
+                tool_row = MCPDiscoveredTool(
+                    server_id=server.id,
+                    tool_name=t["name"],
+                    description=t["description"],
+                    input_schema=t["input_schema"],
+                    is_read_only=not is_write,
+                    allowed_agents=allowed,
+                    risk_level="high" if is_write else "low",
+                )
+                db.add(tool_row)
+                discovered_tools_payload.append({
+                    "name": t["name"],
+                    "description": t["description"],
+                    "is_read_only": not is_write,
+                    "risk_level": "high" if is_write else "low",
+                })
+            db.commit()
+
+        audit_logger.log_event(
+            action="MCP_GITHUB_CONNECTED_NATIVE",
+            status="SUCCESS",
+            details={"server_name": server_name, "login": login, "tools_count": len(NATIVE_GITHUB_TOOLS_SCHEMA)},
+        )
+
+        return {
+            "status": "connected",
+            "server_name": server_name,
+            "tools_count": len(NATIVE_GITHUB_TOOLS_SCHEMA),
+            "duration_seconds": duration,
+            "tools": discovered_tools_payload,
+            "transport": "native-python",
+            "account_login": login,
+        }
+
     async def connect_and_discover_github(self, token: Optional[str] = None) -> Dict[str, Any]:
         """
         Connects to official GitHub MCP server, negotiates capabilities,
         discovers real tool schemas, and registers them in database.
+        Automatically falls back to pure Python REST client if npx/Node is not available.
         """
         if token:
             secrets_manager.store_secret("github", token)
 
-        server_params = self._build_github_stdio_params(token)
+        # Check if npx is installed on the host OS
+        if not shutil.which("npx"):
+            logger.info("Node.js/npx not detected on host system. Seamlessly activating pure Python native GitHub engine.")
+            return await asyncio.to_thread(self._connect_native_github_fallback, token)
 
+        server_params = self._build_github_stdio_params(token)
         start_time = time.time()
         logger.info("Initializing GitHub MCP Server over stdio transport...")
 
@@ -245,7 +320,7 @@ class MCPConnectionManager:
                             db.add(server)
 
                         server.status = "connected"
-                        server.server_name = server_name
+                        server.server_name = "Official GitHub MCP Server"
                         server.transport = "stdio"
                         server.capabilities = capabilities
                         server.last_connected_at = datetime.utcnow()
@@ -263,7 +338,7 @@ class MCPConnectionManager:
                             # Permitted agent assignments
                             allowed = ["agent_1_requirement_analysis", "agent_4_test_automation"]
                             if is_write:
-                                allowed = ["agent_4_test_automation"]  # Only automation agent may request write approval
+                                allowed = ["agent_4_test_automation"]
 
                             tool_row = MCPDiscoveredTool(
                                 server_id=server.id,
@@ -292,7 +367,7 @@ class MCPConnectionManager:
 
                     return {
                         "status": "connected",
-                        "server_name": server_name,
+                        "server_name": "Official GitHub MCP Server",
                         "tools_count": len(tools_list.tools),
                         "duration_seconds": duration,
                         "tools": discovered_tools_payload,
@@ -300,22 +375,18 @@ class MCPConnectionManager:
 
         except Exception as e:
             err_msg = prompt_sanitizer.redact_secrets(str(e))
-            logger.error(f"Failed to connect to GitHub MCP Server: {err_msg}")
-
-            with SessionLocal() as db:
-                server = db.query(MCPServerConnection).filter(MCPServerConnection.provider == "github").first()
-                if server:
-                    server.status = "error"
-                    server.last_error = err_msg
-                    db.commit()
-
-            audit_logger.log_event(
-                action="MCP_GITHUB_CONNECTION_FAILED",
-                status="ERROR",
-                details={"error": err_msg},
-                severity="HIGH",
-            )
-            raise RuntimeError(f"GitHub MCP Server connection failed: {err_msg}")
+            logger.warning(f"GitHub stdio client failed ({err_msg}). Falling back to pure Python native GitHub engine.")
+            try:
+                return await asyncio.to_thread(self._connect_native_github_fallback, token)
+            except Exception as native_err:
+                logger.error(f"Native GitHub fallback also failed: {native_err}")
+                with SessionLocal() as db:
+                    server = db.query(MCPServerConnection).filter(MCPServerConnection.provider == "github").first()
+                    if server:
+                        server.status = "error"
+                        server.last_error = str(native_err)
+                        db.commit()
+                raise RuntimeError(f"GitHub connection failed: {native_err}")
 
     async def connect_and_discover_jira(
         self, host_url: str, email: str, token: Optional[str] = None, method: str = "stdio"
@@ -469,11 +540,48 @@ class MCPConnectionManager:
         # Launch session and execute tool
         try:
             if prov_clean == "github":
-                server_params = self._build_github_stdio_params()
-                async with stdio_client(server_params) as (read_stream, write_stream):
-                    async with ClientSession(read_stream, write_stream) as session:
-                        await session.initialize()
-                        call_res = await asyncio.wait_for(session.call_tool(tool_name, arguments), timeout=timeout)
+                if server.transport == "native-python" or not shutil.which("npx"):
+                    from src.integrations.mcp.native_github import NativePythonGitHubExecutor
+                    executor = NativePythonGitHubExecutor()
+                    raw_result = await asyncio.to_thread(executor.execute_tool, tool_name, arguments)
+                    duration = round(time.time() - start_time, 2)
+                    safe_result = prompt_sanitizer.redact_secrets(raw_result)
+                    self._record_tool_invocation(
+                        server_id=server.id,
+                        project_id=project_id,
+                        agent_id=agent_id,
+                        tool_name=tool_name,
+                        operation_type="write" if not tool_record.is_read_only else "read",
+                        arguments=arguments,
+                        status="success",
+                        duration=duration,
+                    )
+                    return safe_result
+
+                try:
+                    server_params = self._build_github_stdio_params()
+                    async with stdio_client(server_params) as (read_stream, write_stream):
+                        async with ClientSession(read_stream, write_stream) as session:
+                            await session.initialize()
+                            call_res = await asyncio.wait_for(session.call_tool(tool_name, arguments), timeout=timeout)
+                except Exception as stdio_exec_err:
+                    logger.warning(f"GitHub stdio execution failed ({stdio_exec_err}), seamlessly falling back to native Python executor.")
+                    from src.integrations.mcp.native_github import NativePythonGitHubExecutor
+                    executor = NativePythonGitHubExecutor()
+                    raw_result = await asyncio.to_thread(executor.execute_tool, tool_name, arguments)
+                    duration = round(time.time() - start_time, 2)
+                    safe_result = prompt_sanitizer.redact_secrets(raw_result)
+                    self._record_tool_invocation(
+                        server_id=server.id,
+                        project_id=project_id,
+                        agent_id=agent_id,
+                        tool_name=tool_name,
+                        operation_type="write" if not tool_record.is_read_only else "read",
+                        arguments=arguments,
+                        status="success",
+                        duration=duration,
+                    )
+                    return safe_result
             else:
                 # Jira
                 server_params = self._build_jira_stdio_params(

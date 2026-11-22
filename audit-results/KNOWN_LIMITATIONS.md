@@ -73,14 +73,12 @@ It is **not** currently packaged as a multi-tenant, public-facing B2B SaaS platf
 
 ---
 
-## 6. MCP STDIO TRANSPORT DEPENDENCY
+## 6. MCP STDIO TRANSPORT DEPENDENCY ON NODE/NPX (OVERCOME)
 
-### Architectural Context
-* The GitHub MCP integration relies on `npx @modelcontextprotocol/server-github` spawned as a local stdio subprocess.
-
-### Observed Limitation
-* If the host machine running the backend does not have Node.js and `npx` installed on its system `PATH`, the GitHub MCP stdio transport cannot spawn the sub-server.
-* (Note: The Atlassian Jira MCP uses Remote SSE over HTTP and does not have this Node.js dependency).
-
-### Remediation Path
-* Ensure Node.js is installed on the host machine (as documented in the [Fresh Installation Guide](file:///e:/Industry%20Grade%20projects/Testing%20Agent/testing-agent-platform/audit-results/FRESH_INSTALLATION_GUIDE.md)), or containerize the backend environment with Node.js pre-installed in Docker.
+### Architectural Context & Resolution
+* **Previous Limitation:** The official `@modelcontextprotocol/server-github` package required Node.js / `npx` installed on the host machine to spawn the stdio subprocess.
+* **Resolution Implemented:** Built a **Pure Python Native GitHub Engine** ([src/integrations/mcp/native_github.py](file:///e:/Industry%20Grade%20projects/Testing%20Agent/testing-agent-platform/src/integrations/mcp/native_github.py)) integrated into [connection_manager.py](file:///e:/Industry%20Grade%20projects/Testing%20Agent/testing-agent-platform/src/integrations/mcp/connection_manager.py).
+  * Automatically detects whether `npx` is available on system `PATH`.
+  * If `npx` is missing (or fails in restricted sandboxes), the platform seamlessly falls back to the native Python REST v3 engine.
+  * Successfully verified reading repositories, file trees, and file contents (`TrainMate/README.md`) on pure Python with zero Node.js binary requirements.
+* **Cost:** **$0.00** (built into platform runtime).
