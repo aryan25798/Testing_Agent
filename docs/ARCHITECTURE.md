@@ -8,9 +8,9 @@ This document provides a technical overview of the enterprise architecture power
 
 ```
 +-----------------------------------------------------------------------------------------+
-|                                Streamlit Frontend (UI)                                  |
-|   - Executive KPI Cards          - Test Results Donut Chart   - Execution Trend Line    |
-|   - Test Suites Overview Table   - Live Recent Activity Feed  - 10-Step Beginner Wizard |
+|                                 Angular Frontend (UI)                                   |
+|   - Executive KPI Cards          - ECharts Trend / Donut Gauges - 6-Agent Flow Monitor  |
+|   - Test Cases & Execution Grid  - MCP Integration Center       - Model Router Controls |
 +--------------------------------------------+--------------------------------------------+
                                              | HTTP / REST
 +--------------------------------------------v--------------------------------------------+

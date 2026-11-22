@@ -18,7 +18,6 @@ REQUIRED_PACKAGES = [
     "fastapi",
     "uvicorn",
     "pydantic",
-    "streamlit",
     "dotenv",  # python-dotenv maps to dotenv or importlib distribution python-dotenv
     "httpx",
     "pytest",

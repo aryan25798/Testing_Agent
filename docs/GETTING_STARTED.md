@@ -37,13 +37,13 @@ uvicorn src.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 API Documentation will be live at: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 
-### 2. Launch the Streamlit Dashboard
+### 2. Launch the Angular Frontend
 In another terminal:
 ```powershell
-.\.venv\Scripts\Activate.ps1
-streamlit run ui/app.py --server.port 8501
+cd frontend
+npm start
 ```
-The visual dashboard will open at: [http://localhost:8501](http://localhost:8501)
+The visual dashboard will open at: [http://localhost:4200](http://localhost:4200)
 
 ---
 

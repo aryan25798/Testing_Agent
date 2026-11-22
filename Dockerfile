@@ -46,6 +46,6 @@ ENV PATH=/root/.local/bin:$PATH
 
 COPY . /app
 
-EXPOSE 8000 8501
+EXPOSE 8000
 
-CMD ["sh", "-c", "uvicorn src.main:app --host 0.0.0.0 --port 8000 & streamlit run ui/app.py --server.port 8501 --server.address 0.0.0.0"]
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -48,7 +48,7 @@ You can assign different models to each of the 6 agents based on cost, reasoning
 ## 4. Runtime Switching Without Restarting
 
 You can switch models at any moment via:
-1. **The Streamlit UI**: Under *Settings ➔ AI Model Engine*.
+1. **The Angular UI**: Under *AI Model Settings* (`/models`).
 2. **The REST API**:
    ```bash
    curl -X POST http://127.0.0.1:8000/api/v1/agents/agent_4_test_automation/switch-model \
