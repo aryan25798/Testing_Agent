@@ -32,7 +32,7 @@ import * as echarts from 'echarts';
             <span class="inline-block transform hover:rotate-12 transition-transform cursor-pointer">👋</span>
           </h1>
           <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5 truncate">
-            Autonomous AI software testing assistant and quality engineering platform.
+            Autonomous AI software testing agent and quality engineering platform.
           </p>
         </div>
 

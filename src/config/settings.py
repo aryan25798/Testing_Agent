@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     )
 
     # General Settings
-    APP_NAME: str = "Testing Agent Platform"
+    APP_NAME: str = "AI Testing Agent"
     APP_VERSION: str = "1.0.0"
     ENVIRONMENT: str = "development"
     DEBUG: bool = True

@@ -158,7 +158,7 @@ import { IconComponent } from '../../shared/components/icon.component';
           <h3 class="font-bold text-slate-900 dark:text-white text-sm">Local Architecture & Data Isolation</h3>
         </div>
         <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-          This AI Testing Assistant is running in a fully private, single-tenant local workspace on your machine.
+          This AI Testing Agent is running in a fully private, single-tenant local workspace on your machine.
           All client projects, test cases, and conversation context are permanently stored in your SQLite database.
         </p>
 

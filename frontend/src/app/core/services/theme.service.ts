@@ -6,7 +6,7 @@ export type AppTheme = 'light' | 'dark' | 'system';
   providedIn: 'root',
 })
 export class ThemeService {
-  private readonly THEME_KEY = 'ai_testing_assistant_theme';
+  private readonly THEME_KEY = 'ai_testing_agent_theme';
   theme = signal<AppTheme>('system');
   isDark = signal<boolean>(false);
 
@@ -14,7 +14,7 @@ export class ThemeService {
 
   constructor() {
     // 1. Load saved theme or default to system
-    const saved = localStorage.getItem(this.THEME_KEY) as AppTheme | null;
+    const saved = (localStorage.getItem(this.THEME_KEY) || localStorage.getItem('ai_testing_assistant_theme')) as AppTheme | null;
     if (saved && ['light', 'dark', 'system'].includes(saved)) {
       this.theme.set(saved);
     } else {

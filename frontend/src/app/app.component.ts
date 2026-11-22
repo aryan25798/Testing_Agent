@@ -27,6 +27,6 @@ import { ThemeService } from './core/services/theme.service';
   `,
 })
 export class AppComponent {
-  title = 'AI Testing Assistant';
+  title = 'AI Testing Agent';
   themeService = inject(ThemeService); // Initializes theme listener and local storage on startup
 }

@@ -3,11 +3,12 @@ import { CommonModule } from '@angular/common';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { SidebarService } from '../../core/services/sidebar.service';
 import { IconComponent } from '../../shared/components/icon.component';
+import { LogoComponent } from '../../shared/components/logo.component';
 
 @Component({
   selector: 'app-sidebar',
   standalone: true,
-  imports: [CommonModule, RouterLink, RouterLinkActive, IconComponent],
+  imports: [CommonModule, RouterLink, RouterLinkActive, IconComponent, LogoComponent],
   template: `
     <!-- Mobile Backdrop Overlay -->
     <div
@@ -33,12 +34,10 @@ import { IconComponent } from '../../shared/components/icon.component';
         [class.justify-center]="sidebarService.isCollapsed()"
       >
         <div class="flex items-center gap-3 min-w-0">
-          <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 via-indigo-600 to-cyan-400 flex items-center justify-center font-black text-white text-lg shadow-glow-blue tracking-tight shrink-0">
-            A
-          </div>
+          <app-logo [size]="36" class="shrink-0 cursor-pointer" routerLink="/dashboard"></app-logo>
           <div *ngIf="!sidebarService.isCollapsed()" class="truncate transition-opacity duration-200">
             <div class="font-bold text-white text-sm leading-tight tracking-tight">AI Testing</div>
-            <div class="font-bold text-blue-400 text-xs leading-tight tracking-tight">Assistant</div>
+            <div class="font-extrabold text-blue-400 text-xs leading-tight tracking-wider uppercase">Agent</div>
           </div>
         </div>
 
