@@ -12,10 +12,10 @@ import { IconComponent } from '../../shared/components/icon.component';
   template: `
     <div class="space-y-8 max-w-7xl mx-auto pb-12">
       <!-- Header -->
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">AI Model Engine & Provider Configuration</h1>
-          <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 min-w-0">
+        <div class="min-w-0 flex-1">
+          <h1 class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight break-words min-w-0">AI Model Engine & Provider Configuration</h1>
+          <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5 break-words">
             Connect your Gemini and OpenAI credentials, discover available live models, and assign independent models per testing agent.
           </p>
         </div>
@@ -23,7 +23,7 @@ import { IconComponent } from '../../shared/components/icon.component';
         <button
           (click)="refreshModels()"
           [disabled]="isRefreshing"
-          class="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all self-start sm:self-auto disabled:opacity-50"
+          class="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all self-start sm:self-auto disabled:opacity-50 shrink-0 cursor-pointer"
         >
           <app-icon name="refresh-cw" size="14" [class]="isRefreshing ? 'animate-spin' : ''"></app-icon>
           <span>{{ isRefreshing ? 'Discovering Models...' : 'Refresh Discovered Models' }}</span>

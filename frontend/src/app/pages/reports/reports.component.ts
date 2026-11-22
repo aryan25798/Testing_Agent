@@ -12,15 +12,15 @@ import { IconComponent } from '../../shared/components/icon.component';
   template: `
     <div class="space-y-6 max-w-7xl mx-auto pb-12">
       <!-- Header -->
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Consolidated QA Reports</h1>
-          <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 min-w-0">
+        <div class="min-w-0 flex-1">
+          <h1 class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight break-words min-w-0">Consolidated QA Reports</h1>
+          <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5 break-words">
             Audit-ready test execution reports, coverage metrics, and executive summaries.
           </p>
         </div>
 
-        <div class="flex flex-wrap items-center gap-3">
+        <div class="flex flex-wrap items-center gap-2.5 sm:gap-3 shrink-0">
           <div class="flex items-center gap-2">
             <label class="text-xs font-bold text-slate-600 dark:text-slate-300">Project:</label>
             <select
@@ -58,22 +58,22 @@ import { IconComponent } from '../../shared/components/icon.component';
       <!-- Report Card -->
       <div class="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200/80 dark:border-slate-800 shadow-subtle space-y-6 transition-colors" *ngIf="reportData; else noReportTpl">
         <!-- KPI Row -->
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-            <div class="text-xs text-slate-500 dark:text-slate-400">Total Requirements</div>
-            <div class="text-2xl font-black text-slate-900 dark:text-white mt-1">{{ reportData.total_requirements || 0 }}</div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+          <div class="p-3.5 sm:p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 min-w-0">
+            <div class="text-xs text-slate-500 dark:text-slate-400 truncate">Total Requirements</div>
+            <div class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white mt-1 truncate">{{ reportData.total_requirements || 0 }}</div>
           </div>
-          <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-            <div class="text-xs text-slate-500 dark:text-slate-400">Test Cases Designed</div>
-            <div class="text-2xl font-black text-slate-900 dark:text-white mt-1">{{ reportData.total_test_cases || 0 }}</div>
+          <div class="p-3.5 sm:p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 min-w-0">
+            <div class="text-xs text-slate-500 dark:text-slate-400 truncate">Test Cases Designed</div>
+            <div class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white mt-1 truncate">{{ reportData.total_test_cases || 0 }}</div>
           </div>
-          <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-            <div class="text-xs text-slate-500 dark:text-slate-400">Tests Evaluated</div>
-            <div class="text-2xl font-black text-slate-900 dark:text-white mt-1">{{ reportData.total_tests_evaluated || 0 }}</div>
+          <div class="p-3.5 sm:p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 min-w-0">
+            <div class="text-xs text-slate-500 dark:text-slate-400 truncate">Tests Evaluated</div>
+            <div class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white mt-1 truncate">{{ reportData.total_tests_evaluated || 0 }}</div>
           </div>
-          <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-            <div class="text-xs text-slate-500 dark:text-slate-400">Pass Rate</div>
-            <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">{{ reportData.pass_rate_percentage || 0 }}%</div>
+          <div class="p-3.5 sm:p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 min-w-0">
+            <div class="text-xs text-slate-500 dark:text-slate-400 truncate">Pass Rate</div>
+            <div class="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1 truncate">{{ reportData.pass_rate_percentage || 0 }}%</div>
           </div>
         </div>
 
@@ -83,7 +83,7 @@ import { IconComponent } from '../../shared/components/icon.component';
             <app-icon name="file-text" size="16" class="text-blue-600 dark:text-blue-400"></app-icon>
             <h3 class="font-bold text-slate-900 dark:text-white text-sm">Executive Summary & Audit Findings</h3>
           </div>
-          <div class="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 font-sans text-xs text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
+          <div class="bg-slate-50 dark:bg-slate-800/50 p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 font-sans text-xs text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap break-words">
             {{ reportData.markdown_report }}
           </div>
         </div>

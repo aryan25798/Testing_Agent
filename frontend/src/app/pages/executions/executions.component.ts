@@ -12,15 +12,15 @@ import { IconComponent } from '../../shared/components/icon.component';
   template: `
     <div class="space-y-6 max-w-7xl mx-auto pb-12">
       <!-- Header -->
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Execution History & Evidence</h1>
-          <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 min-w-0">
+        <div class="min-w-0 flex-1">
+          <h1 class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight break-words min-w-0">Execution History & Evidence</h1>
+          <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5 break-words">
             Real execution telemetry, Playwright browser test traces, and failure triage.
           </p>
         </div>
 
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2 sm:gap-3 shrink-0">
           <label class="text-xs font-bold text-slate-600 dark:text-slate-300">Project:</label>
           <select
             [(ngModel)]="selectedProjectId"
@@ -36,8 +36,8 @@ import { IconComponent } from '../../shared/components/icon.component';
 
       <!-- Executions Table -->
       <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-subtle overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs">
+        <div class="overflow-x-auto w-full max-w-full">
+          <table class="w-full text-left text-xs min-w-[720px]">
             <thead class="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200/80 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold text-[10px]">
               <tr>
                 <th class="px-5 py-3">Run Key</th>
@@ -107,9 +107,9 @@ import { IconComponent } from '../../shared/components/icon.component';
       <!-- Detail Modal -->
       <div
         *ngIf="selectedExecution"
-        class="fixed inset-0 z-50 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4"
+        class="fixed inset-0 z-50 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4"
       >
-        <div class="bg-white dark:bg-slate-900 rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 max-h-[85vh] overflow-y-auto space-y-4">
+        <div class="bg-white dark:bg-slate-900 rounded-2xl max-w-2xl w-full p-4 sm:p-6 shadow-2xl border border-slate-200 dark:border-slate-800 max-h-[85vh] overflow-y-auto space-y-4">
           <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
             <div>
               <span class="font-mono text-xs font-bold text-blue-600 dark:text-blue-400">{{ selectedExecution.execution_key }}</span>
@@ -120,7 +120,7 @@ import { IconComponent } from '../../shared/components/icon.component';
             </button>
           </div>
 
-          <div class="grid grid-cols-3 gap-3 p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
             <div>
               <div class="text-[10px] text-slate-400">Passed</div>
               <div class="text-lg font-bold text-emerald-600 dark:text-emerald-400">{{ selectedExecution.passed_tests }}</div>

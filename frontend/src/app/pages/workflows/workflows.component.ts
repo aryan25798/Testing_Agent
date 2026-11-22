@@ -13,14 +13,14 @@ import { IconComponent } from '../../shared/components/icon.component';
   template: `
     <div class="space-y-6 max-w-7xl mx-auto pb-12">
       <!-- Header -->
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">AI Testing Workflows</h1>
-          <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 min-w-0">
+        <div class="min-w-0 flex-1">
+          <h1 class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight break-words min-w-0">AI Testing Workflows</h1>
+          <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5 break-words">
             End-to-end autonomous test design, Playwright script generation, and browser validation.
           </p>
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 shrink-0">
           <label class="text-xs font-bold text-slate-600 dark:text-slate-300">Active Project:</label>
           <select
             [(ngModel)]="selectedProjectId"
@@ -65,11 +65,11 @@ import { IconComponent } from '../../shared/components/icon.component';
 
         <!-- Input Section -->
         <div class="space-y-4">
-          <div class="flex items-center justify-between">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
             <label class="block text-xs font-bold text-slate-800 dark:text-slate-200">
               Requirements, User Stories, or Acceptance Criteria *
             </label>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 shrink-0">
               <label class="cursor-pointer text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 bg-blue-50 dark:bg-blue-950/60 px-2.5 py-1 rounded-lg flex items-center gap-1.5">
                 <app-icon name="download" size="13"></app-icon>
                 <span>Upload Requirement File</span>
@@ -102,7 +102,7 @@ import { IconComponent } from '../../shared/components/icon.component';
         </div>
 
         <!-- Action / Run -->
-        <div class="flex items-center justify-between pt-2">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
           <div class="text-xs text-slate-500 dark:text-slate-400">
             <span *ngIf="isRunning" class="inline-flex items-center gap-2 text-blue-600 dark:text-blue-400 font-semibold">
               <app-icon name="refresh-cw" size="14" class="animate-spin"></app-icon>
@@ -113,7 +113,7 @@ import { IconComponent } from '../../shared/components/icon.component';
           <button
             (click)="runCompletePipeline()"
             [disabled]="isRunning || !selectedProjectId"
-            class="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold px-6 py-3 rounded-xl text-xs transition-all shadow-md disabled:opacity-50 cursor-pointer"
+            class="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold px-6 py-3 rounded-xl text-xs transition-all shadow-md disabled:opacity-50 cursor-pointer w-full sm:w-auto"
           >
             <app-icon name="play" size="14"></app-icon>
             <span>{{ isRunning ? 'Processing Agents...' : 'Run Autonomous Testing Pipeline' }}</span>
@@ -122,7 +122,7 @@ import { IconComponent } from '../../shared/components/icon.component';
 
         <!-- Workflow Execution Results Card -->
         <div *ngIf="workflowResult" class="p-5 rounded-2xl bg-slate-900 text-slate-100 space-y-4 shadow-xl border border-slate-800">
-          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800 pb-3 gap-2">
             <div class="flex items-center gap-2 font-bold text-sm text-emerald-400">
               <app-icon name="check-circle-2" size="16"></app-icon>
               <span>Autonomous Workflow Completed Successfully!</span>

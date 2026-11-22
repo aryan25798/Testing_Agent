@@ -12,25 +12,27 @@ import { IconComponent } from '../../shared/components/icon.component';
   template: `
     <div class="space-y-6 max-w-7xl mx-auto pb-12">
       <!-- Header -->
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Test Automation Scripts</h1>
-          <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 min-w-0">
+        <div class="min-w-0 flex-1">
+          <h1 class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight break-words min-w-0">Test Automation Scripts</h1>
+          <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5 break-words">
             Generated Playwright and Selenium Python test automation scripts.
           </p>
         </div>
 
-        <div class="flex items-center gap-3">
-          <label class="text-xs font-bold text-slate-600 dark:text-slate-300">Project:</label>
-          <select
-            [(ngModel)]="selectedProjectId"
-            (change)="loadScripts()"
-            class="px-3 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 shadow-sm focus:border-blue-500 outline-none"
-          >
-            <option *ngFor="let p of projects" [value]="p.id">
-              {{ p.name }}
-            </option>
-          </select>
+        <div class="flex flex-wrap items-center gap-2.5 sm:gap-3 shrink-0">
+          <div class="flex items-center gap-2">
+            <label class="text-xs font-bold text-slate-600 dark:text-slate-300">Project:</label>
+            <select
+              [(ngModel)]="selectedProjectId"
+              (change)="loadScripts()"
+              class="px-3 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 shadow-sm focus:border-blue-500 outline-none"
+            >
+              <option *ngFor="let p of projects" [value]="p.id">
+                {{ p.name }}
+              </option>
+            </select>
+          </div>
 
           <a
             *ngIf="scripts.length"
@@ -74,7 +76,7 @@ import { IconComponent } from '../../shared/components/icon.component';
         <!-- Script Viewer (Right 8 cols) -->
         <div class="lg:col-span-8 bg-slate-950 rounded-2xl p-5 border border-slate-800 shadow-xl text-slate-100 flex flex-col justify-between" *ngIf="selectedScript">
           <div>
-            <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+            <div class="flex flex-wrap items-center justify-between border-b border-slate-800 pb-3 mb-4 gap-2">
               <div class="flex items-center gap-2">
                 <span class="text-blue-400 font-mono text-xs font-bold">{{ selectedScript.script_name }}</span>
                 <span class="px-2 py-0.5 rounded-full text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-800">

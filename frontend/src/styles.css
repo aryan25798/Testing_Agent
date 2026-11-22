@@ -88,3 +88,12 @@
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
+
+/* Hide scrollbar for clean horizontal tabs while keeping full scrollability */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

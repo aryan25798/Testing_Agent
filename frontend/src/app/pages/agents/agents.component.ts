@@ -13,16 +13,16 @@ import { IconComponent } from '../../shared/components/icon.component';
   template: `
     <div class="space-y-8 max-w-7xl mx-auto pb-12">
       <!-- Header -->
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">My Agent Library</h1>
-          <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 min-w-0">
+        <div class="min-w-0 flex-1">
+          <h1 class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight break-words min-w-0">My Agent Library</h1>
+          <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5 break-words">
             Six specialized autonomous testing agents plus your custom QA engineers.
           </p>
         </div>
         <button
           (click)="showCreateModal = true"
-          class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition-all shadow-sm cursor-pointer"
+          class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition-all shadow-sm cursor-pointer shrink-0 self-start sm:self-auto"
         >
           <app-icon name="plus" size="14"></app-icon>
           <span>Build Custom Agent</span>
@@ -133,9 +133,9 @@ import { IconComponent } from '../../shared/components/icon.component';
       <!-- Build Custom Agent Modal -->
       <div
         *ngIf="showCreateModal"
-        class="fixed inset-0 z-50 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4"
+        class="fixed inset-0 z-50 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4"
       >
-        <div class="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800">
+        <div class="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-200 dark:border-slate-800 max-h-[90vh] overflow-y-auto">
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-base font-bold text-slate-900 dark:text-white">Build Specialized Custom Agent</h2>
             <button (click)="showCreateModal = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
@@ -156,7 +156,7 @@ import { IconComponent } from '../../shared/components/icon.component';
               />
             </div>
 
-            <div class="grid grid-cols-2 gap-3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Category</label>
                 <select

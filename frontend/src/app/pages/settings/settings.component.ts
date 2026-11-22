@@ -13,16 +13,16 @@ import { MCPServerStatus } from '../../core/models/types';
   template: `
     <div class="space-y-8 max-w-7xl mx-auto pb-16">
       <!-- Header -->
-      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">System Diagnostics & Workspace Settings</h1>
-          <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 min-w-0">
+        <div class="min-w-0 flex-1">
+          <h1 class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight break-words min-w-0">System Diagnostics & Workspace Settings</h1>
+          <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5 break-words">
             Local database health, execution sandbox diagnostics, AES-256 encrypted vault status, and system configurations.
           </p>
         </div>
         <a
           routerLink="/integrations"
-          class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-glow-blue transition-all shrink-0 cursor-pointer"
+          class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-glow-blue transition-all shrink-0 cursor-pointer self-start sm:self-auto"
         >
           <app-icon name="network" size="16"></app-icon>
           <span>Open MCP Integration Center</span>
@@ -30,7 +30,7 @@ import { MCPServerStatus } from '../../core/models/types';
       </div>
 
       <!-- Hero Banner: MCP Architecture Notice -->
-      <div class="bg-gradient-to-r from-blue-900/40 via-indigo-900/30 to-slate-900 rounded-2xl p-6 border border-blue-500/20 shadow-subtle flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div class="bg-gradient-to-r from-blue-900/40 via-indigo-900/30 to-slate-900 rounded-2xl p-5 sm:p-6 border border-blue-500/20 shadow-subtle flex flex-col md:flex-row md:items-center justify-between gap-6 min-w-0">
         <div class="space-y-2 max-w-2xl">
           <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-blue-500/20 border border-blue-500/30 text-blue-400 text-[11px] font-bold">
             <app-icon name="network" size="14"></app-icon>

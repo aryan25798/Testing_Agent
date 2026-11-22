@@ -32,6 +32,7 @@ htmlcov/
 .hypothesis/
 .tox/
 .nox/
+tests/e2e/screenshots/*.png
 
 # Logs and Local Databases
 *.log

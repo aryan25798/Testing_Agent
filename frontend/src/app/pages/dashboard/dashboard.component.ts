@@ -25,13 +25,13 @@ import * as echarts from 'echarts';
       <!-- ================================================================= -->
       <!-- TOP GREETING BAR -->
       <!-- ================================================================= -->
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div class="min-w-0">
-          <h1 class="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2 truncate">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 min-w-0">
+        <div class="min-w-0 flex-1">
+          <h1 class="text-xl sm:text-2xl lg:text-3xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2 break-words">
             <span>Welcome back, Aryan!</span>
             <span class="inline-block transform hover:rotate-12 transition-transform cursor-pointer">👋</span>
           </h1>
-          <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+          <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5 break-words">
             Autonomous AI software testing agent and quality engineering platform.
           </p>
         </div>
@@ -226,8 +226,8 @@ import * as echarts from 'echarts';
               </a>
             </div>
 
-            <!-- 7 Horizontal Agent Cards Grid -->
-            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+            <!-- 7 Horizontal Agent Cards Grid (Responsive 2/3/4/7 columns) -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-7 gap-3">
               <!-- Agent 1: Requirement Analysis -->
               <div
                 (click)="router.navigate(['/agents'])"

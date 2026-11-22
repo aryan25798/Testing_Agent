@@ -13,15 +13,15 @@ import { IconComponent } from '../../shared/components/icon.component';
   template: `
     <div class="space-y-6 max-w-7xl mx-auto pb-12">
       <!-- Header -->
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Test Cases Explorer</h1>
-          <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 min-w-0">
+        <div class="min-w-0 flex-1">
+          <h1 class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight break-words min-w-0">Test Cases Explorer</h1>
+          <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5 break-words">
             Review, approve, and inspect autonomous step-by-step test cases.
           </p>
         </div>
 
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2 sm:gap-3 shrink-0">
           <label class="text-xs font-bold text-slate-600 dark:text-slate-300">Project:</label>
           <select
             [(ngModel)]="selectedProjectId"
@@ -79,8 +79,8 @@ import { IconComponent } from '../../shared/components/icon.component';
 
       <!-- Test Cases Table -->
       <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-subtle overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs">
+        <div class="overflow-x-auto w-full max-w-full">
+          <table class="w-full text-left text-xs min-w-[700px]">
             <thead class="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200/80 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold text-[10px]">
               <tr>
                 <th class="px-5 py-3">Key</th>
@@ -175,7 +175,7 @@ import { IconComponent } from '../../shared/components/icon.component';
         (click)="selectedCase = null"
       >
         <div
-          class="w-full max-w-xl bg-white dark:bg-slate-900 h-full shadow-2xl p-6 overflow-y-auto space-y-5 border-l border-slate-200 dark:border-slate-800"
+          class="w-full max-w-xl bg-white dark:bg-slate-900 h-full shadow-2xl p-4 sm:p-6 overflow-y-auto space-y-5 border-l border-slate-200 dark:border-slate-800"
           (click)="$event.stopPropagation()"
         >
           <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
