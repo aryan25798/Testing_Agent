@@ -573,13 +573,17 @@ export class ProjectsComponent implements OnInit {
         this.isBulkDeleting = false;
         this.closeDeleteModal();
         this.selectedIds.clear();
-        this.showToast(res.message || `Successfully deleted projects.`, 'success');
+        if (res.failed_ids && res.failed_ids.length > 0) {
+          this.showToast(res.message, 'error');
+        } else {
+          this.showToast(res.message || `Successfully deleted projects.`, 'success');
+        }
         this.loadProjects();
       },
       error: (err) => {
         this.isBulkDeleting = false;
         this.closeDeleteModal();
-        const detail = err?.error?.detail || 'Failed to delete selected projects. Check if active workflows are running.';
+        const detail = err?.error?.detail || err?.message || 'Failed to delete selected projects.';
         this.showToast(detail, 'error');
       },
     });

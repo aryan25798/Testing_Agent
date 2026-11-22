@@ -122,6 +122,35 @@ def test_projects_bulk_delete_and_cascade():
     assert tc_res.status_code == 201
     tc_id = tc_res.json()["id"]
 
+    # Also attach MCP integration mapping and approval request to p1 to test complex FK cascades
+    from src.database.session import SessionLocal
+    from src.models.entities import ProjectIntegrationMapping, MCPApprovalRequest, MCPServerConnection
+
+    db = SessionLocal()
+    conn = MCPServerConnection(server_name="test_gh_server", provider="github", transport="stdio", command="npx")
+    db.add(conn)
+    db.commit()
+    db.refresh(conn)
+
+    mapping = ProjectIntegrationMapping(
+        project_id=p1_id,
+        server_id=conn.id,
+        provider="github",
+        external_id="user/repo",
+    )
+    mcp_appr = MCPApprovalRequest(
+        project_id=p1_id,
+        provider="github",
+        agent_id="test_agent",
+        tool_name="git_push",
+        target_object="repo:user/repo",
+        operation_description="Push code",
+    )
+    db.add(mapping)
+    db.add(mcp_appr)
+    db.commit()
+    db.close()
+
     # Execute bulk delete
     bulk_res = client.post("/api/v1/projects/bulk-delete", json={"ids": [p1_id, p2_id]})
     assert bulk_res.status_code == 200

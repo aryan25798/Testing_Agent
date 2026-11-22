@@ -48,6 +48,7 @@ class Project(Base):
     approvals = relationship("ApprovalRequest", back_populates="project", cascade="all, delete-orphan")
     agent_executions = relationship("AgentExecution", back_populates="project", cascade="all, delete-orphan")
     integration_mappings = relationship("ProjectIntegrationMapping", back_populates="project", cascade="all, delete-orphan")
+    mcp_approvals = relationship("MCPApprovalRequest", back_populates="project", cascade="all, delete-orphan")
 
 
 class Requirement(Base):
@@ -377,4 +378,6 @@ class MCPApprovalRequest(Base):
     decision_reason = Column(Text, nullable=True)
     decided_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    project = relationship("Project", back_populates="mcp_approvals")
 

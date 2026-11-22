@@ -7,7 +7,7 @@ from typing import List, Optional, Union
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from src.database.session import get_db
-from src.models.entities import TestCase, Project
+from src.models.entities import TestCase, Project, TestExecutionResult, AutomationScript
 from src.schemas.dtos import (
     TestCaseCreate,
     TestCaseRead,
@@ -112,6 +112,10 @@ def bulk_delete_test_cases(payload: BulkDeleteRequest, db: Session = Depends(get
     deleted_ids = []
     failed_ids = []
 
+    # Disassociate foreign key references in execution results and automation scripts
+    db.query(TestExecutionResult).filter(TestExecutionResult.test_case_id.in_(payload.ids)).update({TestExecutionResult.test_case_id: None}, synchronize_session=False)
+    db.query(AutomationScript).filter(AutomationScript.test_case_id.in_(payload.ids)).update({AutomationScript.test_case_id: None}, synchronize_session=False)
+
     for case_id in payload.ids:
         tc = db.query(TestCase).filter(TestCase.id == case_id).first()
         if not tc:
@@ -120,7 +124,15 @@ def bulk_delete_test_cases(payload: BulkDeleteRequest, db: Session = Depends(get
         db.delete(tc)
         deleted_ids.append(case_id)
 
-    db.commit()
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Database error during test case deletion: {str(e)}",
+        )
+
     return BulkDeleteResponse(
         deleted_count=len(deleted_ids),
         deleted_ids=deleted_ids,
@@ -166,6 +178,15 @@ def delete_test_case(case_id: str, db: Session = Depends(get_db)):
     tc = db.query(TestCase).filter(TestCase.id == case_id).first()
     if not tc:
         raise HTTPException(status_code=404, detail="Test case not found")
+    db.query(TestExecutionResult).filter(TestExecutionResult.test_case_id == case_id).update({TestExecutionResult.test_case_id: None}, synchronize_session=False)
+    db.query(AutomationScript).filter(AutomationScript.test_case_id == case_id).update({AutomationScript.test_case_id: None}, synchronize_session=False)
     db.delete(tc)
-    db.commit()
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Database error during test case deletion: {str(e)}",
+        )
     return None

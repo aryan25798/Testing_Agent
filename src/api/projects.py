@@ -17,7 +17,10 @@ from src.models.entities import (
     TestExecutionResult,
     ApprovalRequest,
     AgentExecution,
+    ProjectIntegrationMapping,
+    MCPApprovalRequest,
 )
+from src.core.logging import get_logger
 from src.schemas.dtos import (
     ProjectCreate,
     ProjectRead,
@@ -28,6 +31,7 @@ from src.schemas.dtos import (
 from src.core.workflow_runner import workflow_runner
 
 router = APIRouter(prefix="/projects", tags=["Projects"])
+logger = get_logger("projects_api")
 
 
 @router.post("", response_model=ProjectRead, status_code=status.HTTP_201_CREATED)
@@ -121,12 +125,22 @@ def bulk_delete_projects(payload: BulkDeleteRequest, db: Session = Depends(get_d
         db.query(TestScenario).filter(TestScenario.project_id == proj_id).delete(synchronize_session=False)
         db.query(Requirement).filter(Requirement.project_id == proj_id).delete(synchronize_session=False)
         db.query(ApprovalRequest).filter(ApprovalRequest.project_id == proj_id).delete(synchronize_session=False)
+        db.query(MCPApprovalRequest).filter(MCPApprovalRequest.project_id == proj_id).delete(synchronize_session=False)
+        db.query(ProjectIntegrationMapping).filter(ProjectIntegrationMapping.project_id == proj_id).delete(synchronize_session=False)
         db.query(AgentExecution).filter(AgentExecution.project_id == proj_id).delete(synchronize_session=False)
 
         db.delete(project)
         deleted_ids.append(proj_id)
 
-    db.commit()
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to commit bulk project deletion: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Database error during project deletion: {str(e)}",
+        )
 
     msg = f"Successfully deleted {len(deleted_ids)} project(s)."
     if failed_ids:
@@ -190,10 +204,20 @@ def delete_project(project_id: str, db: Session = Depends(get_db)):
     db.query(TestScenario).filter(TestScenario.project_id == project_id).delete(synchronize_session=False)
     db.query(Requirement).filter(Requirement.project_id == project_id).delete(synchronize_session=False)
     db.query(ApprovalRequest).filter(ApprovalRequest.project_id == project_id).delete(synchronize_session=False)
+    db.query(MCPApprovalRequest).filter(MCPApprovalRequest.project_id == project_id).delete(synchronize_session=False)
+    db.query(ProjectIntegrationMapping).filter(ProjectIntegrationMapping.project_id == project_id).delete(synchronize_session=False)
     db.query(AgentExecution).filter(AgentExecution.project_id == project_id).delete(synchronize_session=False)
 
     db.delete(project)
-    db.commit()
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to commit project deletion: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Database error during project deletion: {str(e)}",
+        )
     return None
 
 
