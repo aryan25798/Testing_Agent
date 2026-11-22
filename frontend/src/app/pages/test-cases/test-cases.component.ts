@@ -171,7 +171,7 @@ import { IconComponent } from '../../shared/components/icon.component';
       <!-- Detail Slide-over Drawer -->
       <div
         *ngIf="selectedCase"
-        class="fixed inset-0 z-50 bg-slate-900/50 dark:bg-slate-950/70 backdrop-blur-sm flex justify-end transition-opacity"
+        class="fixed inset-0 !m-0 z-50 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-sm flex justify-end transition-opacity"
         (click)="selectedCase = null"
       >
         <div

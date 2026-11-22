@@ -674,7 +674,7 @@ import {
       <div
         *ngIf="showGithubModal"
         (click)="closeGithubModal()"
-        class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm animate-fadeIn"
+        class="fixed inset-0 !m-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn"
       >
         <div
           (click)="$event.stopPropagation()"
@@ -762,7 +762,7 @@ import {
       <div
         *ngIf="showAtlassianModal"
         (click)="closeAtlassianModal()"
-        class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm animate-fadeIn"
+        class="fixed inset-0 !m-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn"
       >
         <div
           (click)="$event.stopPropagation()"
