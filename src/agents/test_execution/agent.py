@@ -80,11 +80,11 @@ class TestExecutionAgent(BaseAgent):
             system_instructions=SYSTEM_INSTRUCTIONS,
         )
 
-    def _execute_single_target(self, target: ExecutionTarget, base_url: str, browser: str = "chromium") -> SingleTestResult:
+    def _execute_single_target(self, target: ExecutionTarget, base_url: str, browser: str = "chromium", headed: bool = False) -> SingleTestResult:
         """Executes a single test target and classifies result."""
         test_start = time.time()
         try:
-            res = self._execute_script_isolated(target.code_content, base_url, browser=browser)
+            res = self._execute_script_isolated(target.code_content, base_url, browser=browser, headed=headed)
             duration = round(time.time() - test_start, 2)
 
             if res["exit_code"] == 0:
@@ -132,6 +132,7 @@ class TestExecutionAgent(BaseAgent):
         project_id: Optional[str] = None,
         parallel: bool = True,
         max_workers: int = 4,
+        headed: bool = False,
     ) -> ExecutionReportOutput:
         start_time = time.time()
         execution_key = f"RUN-{int(time.time())}"
@@ -141,16 +142,41 @@ class TestExecutionAgent(BaseAgent):
         failed_count = 0
         skipped_count = 0
 
-        logger.info(f"Starting test execution run {execution_key} for {len(targets)} tests on {browser} (parallel={parallel}, workers={max_workers}).")
+        # In Headed / Watch mode, force sequential execution so the engineer can visually observe each test without window focus collisions
+        if headed:
+            parallel = False
+            logger.info(f"Headed / Watch Mode enabled: Running {len(targets)} tests sequentially with visible browser window.")
+        else:
+            logger.info(f"Starting test execution run {execution_key} for {len(targets)} tests on {browser} (parallel={parallel}, workers={max_workers}).")
+
+        def _is_run_cancelled() -> bool:
+            if not project_id:
+                return False
+            try:
+                from src.core.workflow_runner import workflow_runner
+                return workflow_runner.is_cancelled(project_id=project_id)
+            except Exception:
+                return False
 
         if parallel and len(targets) > 1:
             workers = min(max_workers, len(targets))
             logger.info(f"Executing {len(targets)} tests across {workers} parallel worker threads on {browser}.")
             with ThreadPoolExecutor(max_workers=workers) as executor:
-                future_to_target = {
-                    executor.submit(self._execute_single_target, target, base_url, browser): target
-                    for target in targets
-                }
+                future_to_target = {}
+                for target in targets:
+                    if _is_run_cancelled():
+                        results.append(SingleTestResult(
+                            test_case_key=target.test_case_key,
+                            test_title=target.title,
+                            status="Skipped",
+                            error_message="Execution cancelled by user request",
+                            failure_classification="FlakyTest",
+                        ))
+                        skipped_count += 1
+                        continue
+                    future = executor.submit(self._execute_single_target, target, base_url, browser, headed)
+                    future_to_target[future] = target
+
                 for future in as_completed(future_to_target):
                     single_res = future.result()
                     results.append(single_res)
@@ -166,7 +192,17 @@ class TestExecutionAgent(BaseAgent):
             results.sort(key=lambda r: target_order.get(r.test_case_key, 999))
         else:
             for target in targets:
-                single_res = self._execute_single_target(target, base_url, browser)
+                if _is_run_cancelled():
+                    results.append(SingleTestResult(
+                        test_case_key=target.test_case_key,
+                        test_title=target.title,
+                        status="Skipped",
+                        error_message="Execution cancelled by user request",
+                        failure_classification="FlakyTest",
+                    ))
+                    skipped_count += 1
+                    continue
+                single_res = self._execute_single_target(target, base_url, browser, headed)
                 results.append(single_res)
                 if single_res.status == "Passed":
                     passed_count += 1
@@ -232,10 +268,10 @@ class TestExecutionAgent(BaseAgent):
                 return reason
         return None
 
-    def _execute_script_isolated(self, code_content: str, base_url: str, browser: str = "chromium") -> Dict[str, Any]:
+    def _execute_script_isolated(self, code_content: str, base_url: str, browser: str = "chromium", headed: bool = False) -> Dict[str, Any]:
         """
         Runs the test script inside a dedicated sandbox directory with process isolation.
-        Validates code safety and avoids f-string formatting over untrusted code.
+        Validates code safety, respects headed/watch mode, and applies corporate proxy/SSL settings.
         """
         safety_error = self._validate_code_safety(code_content)
         if safety_error:
@@ -253,6 +289,9 @@ class TestExecutionAgent(BaseAgent):
 
         project_root = str(Path(__file__).resolve().parent.parent.parent.parent)
         browser_lower = (browser or "chromium").lower()
+        headless_val = "False" if headed else "True"
+        proxy_server = settings.HTTPS_PROXY or settings.HTTP_PROXY or ""
+        proxy_bypass = settings.NO_PROXY or ""
 
         sandbox_dir = settings.ARTIFACTS_DIR / "sandbox"
         sandbox_dir.mkdir(parents=True, exist_ok=True)
@@ -323,11 +362,17 @@ for name, obj in list(locals().items()):
                 from playwright.sync_api import sync_playwright
                 with sync_playwright() as p:
                     b_type = "{browser_lower}"
+                    launch_kwargs = {{"headless": {headless_val}}}
                     if b_type in ("firefox", "webkit", "chromium"):
-                        browser_inst = getattr(p, b_type).launch(headless=True)
+                        browser_inst = getattr(p, b_type).launch(**launch_kwargs)
                     else:
-                        browser_inst = p.chromium.launch(headless=True)
-                    ctx = browser_inst.new_context(base_url="{base_url}")
+                        browser_inst = p.chromium.launch(**launch_kwargs)
+                    context_kwargs = {{"base_url": "{base_url}"}}
+                    if "{proxy_server}":
+                        context_kwargs["proxy"] = {{"server": "{proxy_server}"}}
+                        if "{proxy_bypass}":
+                            context_kwargs["proxy"]["bypass"] = "{proxy_bypass}"
+                    ctx = browser_inst.new_context(**context_kwargs)
                     pw_page = ctx.new_page()
                     try:
                         obj(pw_page)
@@ -341,13 +386,19 @@ for name, obj in list(locals().items()):
                 if b_type in ("firefox", "gecko"):
                     from selenium.webdriver.firefox.options import Options as FOptions
                     opts = FOptions()
-                    opts.add_argument("--headless")
+                    if not {headed}:
+                        opts.add_argument("--headless")
+                    if "{proxy_server}":
+                        opts.add_argument(f"--proxy-server={proxy_server}")
                     drv = webdriver.Firefox(options=opts)
                 else:
                     from selenium.webdriver.chrome.options import Options
                     opts = Options()
-                    opts.add_argument("--headless=new")
+                    if not {headed}:
+                        opts.add_argument("--headless=new")
                     opts.add_argument("--no-sandbox")
+                    if "{proxy_server}":
+                        opts.add_argument(f"--proxy-server={proxy_server}")
                     drv = webdriver.Chrome(options=opts)
                 try:
                     obj(drv)
@@ -383,8 +434,20 @@ print("Execution verification completed.")
             "LC_ALL",
             "PYTHONIOENCODING",
             "PLAYWRIGHT_BROWSERS_PATH",
+            "HTTP_PROXY",
+            "HTTPS_PROXY",
+            "NO_PROXY",
+            "http_proxy",
+            "https_proxy",
+            "no_proxy",
+            "REQUESTS_CA_BUNDLE",
+            "SSL_CERT_FILE",
         ]
         isolated_env = {k: os.environ[k] for k in safe_env_keys if k in os.environ}
+
+        if settings.REQUESTS_CA_BUNDLE and Path(settings.REQUESTS_CA_BUNDLE).exists():
+            isolated_env["REQUESTS_CA_BUNDLE"] = str(settings.REQUESTS_CA_BUNDLE)
+            isolated_env["SSL_CERT_FILE"] = str(settings.REQUESTS_CA_BUNDLE)
 
         # Purge any leaked secret patterns from the environment dictionary
         for k in list(isolated_env.keys()):

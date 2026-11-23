@@ -11,7 +11,7 @@ Provides dedicated tamper-evident logging of security-critical actions:
 import os
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Any, Optional
 from src.core.security.sanitizer import prompt_sanitizer
@@ -50,7 +50,7 @@ class SecurityAuditLogger:
         Records a structured security event with all secrets automatically redacted.
         """
         payload = {
-            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "action": action,
             "status": status,
             "actor": actor,

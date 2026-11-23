@@ -408,171 +408,117 @@ testing-agent-platform/
 
 Verify your installed software versions using the terminal commands below:
 
-| Requirement | Supported Version | Windows (PowerShell) Check | Linux / macOS Check |
-| :--- | :--- | :--- | :--- |
-| **Git** | `2.30+` | `git --version` | `git --version` |
-| **Python** | `3.11` to `3.14` | `python --version` | `python3 --version` |
-| **Node.js** | `20.x` or `22.x` (LTS) | `node -v` | `node -v` |
-| **npm** | `10.x+` | `npm -v` | `npm -v` |
-| **Google Chrome / Chromium** | Latest Stable | `Get-Item "C:\Program Files\Google\Chrome\Application\chrome.exe"` | `google-chrome --version` |
+| Requirement | Supported Version | Mandatory For | Windows (PowerShell) Check | Linux / macOS Check |
+| :--- | :--- | :--- | :--- | :--- |
+| **Git** | `2.30+` | Cloning Repository | `git --version` | `git --version` |
+| **Python** | `3.11` to `3.14` | Backend, AI Agents, Runners | `python --version` | `python3 --version` |
+| **Playwright / Chromium** | Latest | Browser Automation Runner | Auto-installed by `start.bat`/`start.sh` | Auto-installed |
+| **Node.js & npm** | `20.x` or `22.x` | *Optional* (Frontend dev & GitHub MCP) | `node -v` | `node -v` |
 
-> [!NOTE]
-> Node.js (`npx`) is required to run the official GitHub MCP server subprocess (`@modelcontextprotocol/server-github`). Ensure `npx` is available on your system `PATH`.
+> [!TIP]
+> **Zero Node.js Required for Cloned Usage:** The platform includes a pre-compiled, production-optimized Angular 19 distribution served directly by FastAPI on port 8000. Engineers cloning this repository do **not** need Node.js or npm to run the application, view live telemetry, and execute browser tests.
 
 ---
 
 ## 8. Complete Step-by-Step Installation Guide
 
-Follow these exact steps to set up and run the application from a clean repository clone.
-
 ### Step 1: Clone the Repository
-Open a terminal and clone the repository:
-
+Clone the repository to your local machine:
 ```bash
 git clone https://github.com/aryan25798/Testing_Agent.git
 cd Testing_Agent
 ```
 
-If you cloned into a folder containing `testing-agent-platform`, navigate into it:
-```bash
-cd testing-agent-platform
+---
+
+### Option A: 1-Click Automated Setup (Recommended)
+
+The repository provides turnkey 1-click startup scripts that automatically set up the virtual environment, install all dependencies, download Playwright Chromium, initialize configuration, start the unified FastAPI server, and open your browser:
+
+#### Windows:
+Double-click `start.bat` in File Explorer or run in terminal:
+```cmd
+start.bat
 ```
+
+#### Linux / macOS:
+Make the script executable and run:
+```bash
+chmod +x start.sh
+./start.sh
+```
+
+**What the 1-Click Bootstrapper Does Automatically:**
+1. ✅ Detects your local Python 3.11+ / 3.12+ installation.
+2. ✅ Automatically creates an isolated virtual environment (`.venv`) if not present.
+3. ✅ Installs and upgrades all dependencies from `requirements.txt`.
+4. ✅ Initializes `.env` from `.env.example` with a cryptographically secure AES-256 vault key.
+5. ✅ Downloads Playwright Chromium browser binaries (`playwright install chromium`).
+6. ✅ Launches the unified FastAPI server on `http://127.0.0.1:8000`.
+7. ✅ Automatically opens your default web browser directly to `http://127.0.0.1:8000`.
+8. ✅ Automatically displays the **First-Run Setup Wizard** if API keys are needed, allowing you to configure Google Gemini or OpenAI in one click without manually editing text files.
 
 ---
 
-### Step 2: Set Up the Backend Python Environment
+### Option B: Manual Production Setup (Single-Port)
 
-Always use a dedicated virtual environment to prevent package conflicts with your system Python:
+If you prefer step-by-step manual terminal commands:
 
-#### Windows (PowerShell):
+#### 1. Set Up the Python Virtual Environment
+**Windows (PowerShell):**
 ```powershell
-# Create the virtual environment
 python -m venv .venv
-
-# Activate the virtual environment
 .\.venv\Scripts\Activate.ps1
 ```
 
-> [!TIP]
-> If PowerShell throws an execution policy error (`Execution of scripts is disabled on this system`), run:
-> `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser`
-
-#### Linux / macOS (Bash):
+**Linux / macOS (Bash):**
 ```bash
-# Create the virtual environment
 python3 -m venv .venv
-
-# Activate the virtual environment
 source .venv/bin/activate
 ```
 
----
-
-### Step 3: Install Backend Dependencies
-
-With your virtual environment activated, install all required dependencies:
-
+#### 2. Install Dependencies & Playwright Browsers
 ```bash
 pip install --upgrade pip
 pip install -r requirements.txt
-pip install -r requirements-dev.txt
-```
-
-#### Install Playwright Browser Binaries
-Playwright requires headless Chromium binaries to execute browser test scripts:
-
-```bash
 playwright install chromium
 ```
 
----
-
-### Step 4: Configure Backend Environment Variables
-
-1. Copy the provided `.env.example` file to create your local `.env`:
-
-   **Windows (PowerShell)**:
-   ```powershell
-   Copy-Item .env.example .env
-   ```
-
-   **Linux / macOS (Bash)**:
-   ```bash
-   cp .env.example .env
-   ```
-
-2. Open `.env` in your text editor. Inspect the configuration options below:
-
-| Environment Variable | Required? | Default / Example Value | Description |
-| :--- | :--- | :--- | :--- |
-| `ENVIRONMENT` | Optional | `development` | Runtime mode (`development` or `production`). |
-| `DEBUG` | Optional | `True` | Enables debug logging and interactive Swagger docs. |
-| `LOG_LEVEL` | Optional | `INFO` | Logging threshold (`DEBUG`, `INFO`, `WARNING`, `ERROR`). |
-| `APP_HOST` | Optional | `127.0.0.1` | Local IP address for the FastAPI backend server. |
-| `APP_PORT` | Optional | `8000` | Port for the FastAPI backend server. |
-| `FRONTEND_URL` | Optional | `http://localhost:4200` | Allowed origin for Cross-Origin Resource Sharing (CORS). |
-| `SECRET_KEY` | Recommended | `dev_secret_key_testing_agent_platform_2026_local` | Master key for local session protection and token signing. |
-| `DATABASE_URL` | Optional | `sqlite:///./testing_platform.db` | SQLAlchemy connection string pointing to local SQLite file. |
-| `GEMINI_API_KEY` | Optional* | `AIzaSy...` | API key for Google Gemini (`gemini-2.5-flash`, `gemini-2.5-pro`). |
-| `OPENAI_API_KEY` | Optional* | `sk-proj-...` | API key for OpenAI (`gpt-4o`, `gpt-4o-mini`, `o1`). |
-
-*\* Note: API keys can either be defined in `.env` OR entered directly through the web UI at `http://localhost:4200/models` with zero-token browser storage.*
-
----
-
-### Step 5: Configure and Build the Frontend
-
-Open a **second terminal** and navigate to the `frontend/` directory:
-
+#### 3. Configure Environment
 ```bash
-cd frontend
+# Windows
+Copy-Item .env.example .env
+
+# Linux / macOS
+cp .env.example .env
 ```
 
-1. **Install Node.js dependencies**:
-   ```bash
-   npm install
-   ```
-
-2. **Verify Angular build**:
-   ```bash
-   npm run build
-   ```
-   *Expected output: Application bundle generation complete with 0 errors.*
+#### 4. Start Unified Server
+The pre-compiled Angular 19 production distribution is hosted directly by FastAPI:
+```bash
+python -m uvicorn src.main:app --host 127.0.0.1 --port 8000
+```
+Open **`http://127.0.0.1:8000`** in your browser.
 
 ---
 
-### Step 6: Database Initialization
+### Option C: Frontend Developer Mode (Dual Terminal)
 
-The application uses an embedded **SQLite** database (`testing_platform.db`).
-- **No manual migrations are required**: On backend startup, `src.database.session.init_db()` executes automatically, creating all required relational tables, indexes, and default MCP server connection entries.
-- **Persistence**: All data persists in `testing-agent-platform/testing_platform.db`. Restarting the backend server does **not** wipe existing test cases or configurations.
-
----
-
-### Step 7: Start the Application
-
-You will run the backend and frontend servers in two separate terminal windows:
+Only necessary if you are actively modifying the Angular source code (`frontend/src/`):
 
 #### Terminal 1: Backend Server (FastAPI)
-In `testing-agent-platform/` with `.venv` activated:
-
 ```bash
 python -m uvicorn src.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-- **Backend URL**: `http://127.0.0.1:8000`
-- **Swagger Documentation**: `http://127.0.0.1:8000/docs`
-- **Health Check**: `http://127.0.0.1:8000/api/v1/health`
-
-#### Terminal 2: Frontend Server (Angular)
-In `testing-agent-platform/frontend/`:
-
+#### Terminal 2: Angular Live Development Server
 ```bash
+cd frontend
+npm install
 npm start
 ```
-*(or `npx ng serve --port 4200`)*
-
-- **Frontend Application URL**: `http://localhost:4200`
+- Access live Angular dev server: `http://localhost:4200`
+- Access backend API & Swagger: `http://127.0.0.1:8000/docs`
 
 ---
 

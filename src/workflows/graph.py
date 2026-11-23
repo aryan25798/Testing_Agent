@@ -48,9 +48,31 @@ def _run_coroutine_safely(coro):
         return asyncio.run(coro)
 
 
+def _check_cancellation(state: TestingWorkflowState, node_name: str) -> bool:
+    """Checks if cancellation has been requested for this workflow execution."""
+    if state.get("workflow_status") == "Cancelled":
+        return True
+    try:
+        from src.core.workflow_runner import workflow_runner
+        project_id = state.get("project_id", "")
+        workflow_id = state.get("workflow_id", "")
+        if workflow_runner.is_cancelled(project_id=project_id, workflow_id=workflow_id):
+            logger.info(f"Cancellation detected before '{node_name}'. Halting workflow immediately.")
+            return True
+    except Exception as e:
+        logger.warning(f"Error checking cancellation status: {e}")
+    return False
+
+
 # --- Node Definitions ---
 
 def requirement_node(state: TestingWorkflowState) -> Dict[str, Any]:
+    if _check_cancellation(state, "requirement_analysis"):
+        return {
+            "workflow_status": "Cancelled",
+            "current_agent": "cancelled",
+            "errors": state.get("errors", []) + ["Workflow cancelled by user."],
+        }
     logger.info("Executing Agent 1: Requirement Analysis...")
     raw_text = state["raw_input_text"]
     source_type = state.get("source_type", "manual")
@@ -84,12 +106,20 @@ def requirement_node(state: TestingWorkflowState) -> Dict[str, Any]:
         except Exception as e:
             logger.warning(f"Could not fetch from Jira MCP: {e}")
 
+        user_req = state.get("raw_input_text", "").strip()
         if parts:
-            combined = "\n\n---\n\n".join(parts)
-            if state.get("raw_input_text"):
-                raw_text = f"{combined}\n\nTARGET APPLICATION AUTHENTICATION & ENVIRONMENT:\n{state['raw_input_text']}"
+            combined_external = "\n\n---\n\n".join(parts)
+            if user_req:
+                raw_text = (
+                    f"=== PRIMARY USER-SPECIFIED REQUIREMENTS (GROUND TRUTH) ===\n"
+                    f"{user_req}\n\n"
+                    f"=== ENRICHED EXTERNAL REPOSITORY & JIRA CONTEXT ===\n"
+                    f"{combined_external}"
+                )
             else:
-                raw_text = combined
+                raw_text = combined_external
+        else:
+            raw_text = user_req
 
     inp = RequirementAnalysisInput(
         raw_text=raw_text,
@@ -138,6 +168,12 @@ def requirement_node(state: TestingWorkflowState) -> Dict[str, Any]:
 
 
 def scenario_node(state: TestingWorkflowState) -> Dict[str, Any]:
+    if _check_cancellation(state, "scenario_generation"):
+        return {
+            "workflow_status": "Cancelled",
+            "current_agent": "cancelled",
+            "errors": state.get("errors", []) + ["Workflow cancelled by user."],
+        }
     logger.info("Executing Agent 2: Test Scenario Generation...")
     # Map dicts to ExtractedRequirement
     from src.agents.requirement_analysis.agent import ExtractedRequirement
@@ -197,6 +233,12 @@ def scenario_node(state: TestingWorkflowState) -> Dict[str, Any]:
 
 
 def test_case_node(state: TestingWorkflowState) -> Dict[str, Any]:
+    if _check_cancellation(state, "test_case_design"):
+        return {
+            "workflow_status": "Cancelled",
+            "current_agent": "cancelled",
+            "errors": state.get("errors", []) + ["Workflow cancelled by user."],
+        }
     logger.info("Executing Agent 3: Test Case Design...")
     scen_objs = [GeneratedScenario.model_validate(s) for s in state["approved_scenarios"]]
     inp = TestCaseDesignInput(scenarios=scen_objs)
@@ -259,6 +301,12 @@ def test_case_node(state: TestingWorkflowState) -> Dict[str, Any]:
 
 
 def automation_node(state: TestingWorkflowState) -> Dict[str, Any]:
+    if _check_cancellation(state, "test_automation"):
+        return {
+            "workflow_status": "Cancelled",
+            "current_agent": "cancelled",
+            "errors": state.get("errors", []) + ["Workflow cancelled by user."],
+        }
     logger.info("Executing Agent 4: Test Automation Generation...")
     tc_objs = [GeneratedTestCase.model_validate(tc) for tc in state["approved_test_cases"]]
     inp = AutomationGenerationInput(
@@ -298,6 +346,12 @@ def automation_node(state: TestingWorkflowState) -> Dict[str, Any]:
 
 
 def execution_node(state: TestingWorkflowState) -> Dict[str, Any]:
+    if _check_cancellation(state, "test_execution"):
+        return {
+            "workflow_status": "Cancelled",
+            "current_agent": "cancelled",
+            "errors": state.get("errors", []) + ["Execution cancelled before Agent 5."],
+        }
     logger.info("Executing Agent 5: Test Execution & Validation...")
     targets = []
     for s in state["automation_scripts"]:
@@ -317,6 +371,7 @@ def execution_node(state: TestingWorkflowState) -> Dict[str, Any]:
         base_url=state.get("base_url", "http://127.0.0.1:8000"),
         browser=state.get("browser", "chromium") or "chromium",
         project_id=state["project_id"],
+        headed=bool(state.get("headed", False)),
     )
 
     return {
@@ -327,6 +382,15 @@ def execution_node(state: TestingWorkflowState) -> Dict[str, Any]:
 
 
 def reporting_node(state: TestingWorkflowState) -> Dict[str, Any]:
+    if state.get("workflow_status") == "Cancelled" or _check_cancellation(state, "orchestration_reporting"):
+        logger.info("Generating final report for cancelled workflow...")
+        report = report_agent.generate_consolidated_report(project_id=state["project_id"])
+        return {
+            "consolidated_report": report.model_dump(),
+            "workflow_status": "Cancelled",
+            "current_agent": "cancelled",
+            "step_count": state.get("step_count", 0),
+        }
     logger.info("Executing Agent 6: Test Orchestration & Reporting...")
     report = report_agent.generate_consolidated_report(project_id=state["project_id"])
     return {

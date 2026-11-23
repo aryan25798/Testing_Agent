@@ -65,7 +65,56 @@ class WorkflowRunner:
 
     def __init__(self):
         self._workflows: Dict[str, WorkflowRecord] = {}
+        self._project_cancel_events: Dict[str, threading.Event] = {}
         self._lock = threading.Lock()
+
+    def register_project_run(self, project_id: str) -> threading.Event:
+        """Initializes or resets a cancellation event for a project's active run."""
+        with self._lock:
+            event = threading.Event()
+            self._project_cancel_events[project_id] = event
+            return event
+
+    def is_cancelled(self, project_id: Optional[str] = None, workflow_id: Optional[str] = None) -> bool:
+        """Checks if cancellation has been requested for a project or workflow."""
+        with self._lock:
+            if workflow_id:
+                record = self._workflows.get(workflow_id)
+                if record and (record._cancel_event.is_set() or record.state == WorkflowState.CANCELLED):
+                    return True
+            if project_id:
+                evt = self._project_cancel_events.get(project_id)
+                if evt and evt.is_set():
+                    return True
+        return False
+
+    def cancel_project_workflows(self, project_id: str) -> List[Dict[str, Any]]:
+        """
+        Signals cancellation to all workflows (both background runner and SSE streams)
+        associated with the given project.
+        """
+        cancelled_records = []
+        with self._lock:
+            # Signal project-level cancel event
+            evt = self._project_cancel_events.get(project_id)
+            if evt:
+                evt.set()
+            else:
+                new_evt = threading.Event()
+                new_evt.set()
+                self._project_cancel_events[project_id] = new_evt
+
+            # Signal any registered WorkflowRecords for this project
+            for record in self._workflows.values():
+                if record.project_id == project_id and record.state in (WorkflowState.PENDING, WorkflowState.RUNNING):
+                    record._cancel_event.set()
+                    record.state = WorkflowState.CANCELLED
+                    record.end_time = time.time()
+                    record.errors.append("Workflow cancelled by user request")
+                    cancelled_records.append(record.to_dict())
+
+        logger.info(f"Cancellation triggered for project {project_id} ({len(cancelled_records)} background workflows stopped)")
+        return cancelled_records
 
     async def start_workflow(
         self,

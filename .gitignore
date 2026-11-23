@@ -44,8 +44,8 @@ logs/
 *.db-wal
 
 # Build and Distribution
-dist/
 build/
+artifacts/
 *.egg-info/
 *.egg
 

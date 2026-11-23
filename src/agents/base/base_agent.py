@@ -50,8 +50,18 @@ class BaseAgent(ABC):
         for attempt in range(max_retries + 1):
             start_time = time.time()
             try:
+                # On retry, inject explicit feedback with the previous error so model self-repairs syntax
+                attempt_prompt = safe_prompt
+                if attempt > 0 and last_error:
+                    attempt_prompt = (
+                        f"{safe_prompt}\n\n"
+                        f"CRITICAL CORRECTION (Retry {attempt}): Your previous output encountered validation error: {last_error[:300]}.\n"
+                        f"You MUST return strictly valid, RFC-8259 compliant JSON matching the requested schema. "
+                        f"Avoid unescaped quotes inside strings and remove trailing commas."
+                    )
+
                 response = provider.generate_structured(
-                    prompt=safe_prompt,
+                    prompt=attempt_prompt,
                     system_prompt=self.system_instructions,
                     output_schema=output_schema,
                     model=model_id,
@@ -69,14 +79,23 @@ class BaseAgent(ABC):
                     status="Success",
                 )
 
+                from src.core.utils.json_sanitizer import normalize_to_schema, repair_and_parse_json
+
                 if response.structured_data:
+                    if output_schema:
+                        return normalize_to_schema(response.structured_data, output_schema).model_dump()
                     return response.structured_data
                 elif output_schema:
-                    # Parse text if structured_data is empty
-                    return output_schema.model_validate_json(response.text).model_dump()
+                    # Parse and normalize text if structured_data is empty
+                    parsed = repair_and_parse_json(response.text)
+                    return normalize_to_schema(parsed, output_schema).model_dump()
                 return {"text": response.text}
 
             except Exception as e:
+                from src.core.exceptions import QuotaExceededError
+                if isinstance(e, QuotaExceededError):
+                    logger.error(f"Quota exceeded during agent execution: {e}")
+                    raise e
                 latency = time.time() - start_time
                 last_error = str(e)
                 logger.warning(f"Agent '{self.agent_name}' attempt {attempt + 1} failed: {e}")

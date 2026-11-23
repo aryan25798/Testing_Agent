@@ -63,6 +63,7 @@ class RequirementRead(RequirementBase):
 
 
 class TestScenarioBase(BaseModel):
+    __test__ = False
     scenario_key: str
     title: str
     description: str
@@ -77,11 +78,13 @@ class TestScenarioBase(BaseModel):
 
 
 class TestScenarioCreate(TestScenarioBase):
+    __test__ = False
     project_id: str
     requirement_id: str
 
 
 class TestScenarioRead(TestScenarioBase):
+    __test__ = False
     id: str
     project_id: str
     requirement_id: str
@@ -97,6 +100,7 @@ class TestCaseStep(BaseModel):
 
 
 class TestCaseBase(BaseModel):
+    __test__ = False
     test_case_key: str
     title: str
     objective: str
@@ -115,12 +119,14 @@ class TestCaseBase(BaseModel):
 
 
 class TestCaseCreate(TestCaseBase):
+    __test__ = False
     project_id: str
     scenario_id: str
     requirement_id: str
 
 
 class TestCaseRead(TestCaseBase):
+    __test__ = False
     id: str
     project_id: str
     scenario_id: str
@@ -155,6 +161,7 @@ class AutomationScriptRead(AutomationScriptBase):
 
 
 class TestExecutionCreate(BaseModel):
+    __test__ = False
     project_id: str
     runner_type: str = "playwright"
     target_environment: str = "QA"
@@ -164,6 +171,7 @@ class TestExecutionCreate(BaseModel):
 
 
 class TestExecutionResultRead(BaseModel):
+    __test__ = False
     id: str
     test_case_id: Optional[str] = None
     test_title: str
@@ -181,6 +189,7 @@ class TestExecutionResultRead(BaseModel):
 
 
 class TestExecutionRead(BaseModel):
+    __test__ = False
     id: str
     project_id: str
     execution_key: str
@@ -261,6 +270,7 @@ class WorkflowStartRequest(BaseModel):
     jira_issue_keys: Optional[List[str]] = None
     framework: str = "playwright"
     browser: str = "chromium"  # chromium | firefox | webkit | chrome
+    headed: bool = False  # Headed / Watch mode toggle
 
 
 class BulkDeleteRequest(BaseModel):

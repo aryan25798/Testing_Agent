@@ -69,6 +69,13 @@ class Settings(BaseSettings):
     TEST_EXECUTION_TIMEOUT_SECONDS: int = 120
     MAX_CONCURRENT_TESTS: int = 4
     ALLOW_HEADLESS_BROWSER: bool = True
+    BROWSER_HEADED_DEFAULT: bool = False
+
+    # Corporate Network & Proxy Settings
+    HTTP_PROXY: Optional[str] = Field(default=None, description="Corporate HTTP proxy URL (e.g. http://proxy.corp.internal:8080)")
+    HTTPS_PROXY: Optional[str] = Field(default=None, description="Corporate HTTPS proxy URL")
+    NO_PROXY: Optional[str] = Field(default=None, description="Comma-separated domains to bypass proxy (e.g. localhost,127.0.0.1)")
+    REQUESTS_CA_BUNDLE: Optional[str] = Field(default=None, description="Path to custom corporate CA bundle for SSL inspection")
 
 
 settings = Settings()

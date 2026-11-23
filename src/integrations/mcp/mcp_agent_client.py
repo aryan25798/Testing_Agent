@@ -82,33 +82,50 @@ class MCPAgentClient:
         jira_project = cls._get_project_jira_key(project_id) or "TEST"
 
         try:
+            # Check available Atlassian tools dynamically
+            tools = tool_registry.get_registered_tools("atlassian")
+            tool_names = [t["tool_name"] for t in tools]
+
             if issue_key:
-                # Call jira_get_issue tool
+                target_tool = "jira_get_issue" if "jira_get_issue" in tool_names else tool_names[0] if tool_names else None
+                if not target_tool:
+                    logger.info("Atlassian MCP has no discovered tools. Continuing in requirements-only mode.")
+                    return []
                 args = {"issue_key": issue_key}
                 raw_res = await tool_registry.invoke_tool_safely(
                     project_id=project_id,
                     provider="atlassian",
                     agent_id=agent_id,
-                    tool_name="jira_get_issue",
+                    tool_name=target_tool,
                     arguments=args,
                 )
                 return [{"key": issue_key, "raw_content": raw_res}]
             else:
-                # Call jira_get_project_issues or jira_search tool
-                jql = f"project = {jira_project} ORDER BY created DESC"
-                args = {"jql": jql, "limit": max_results}
+                if "jira_search" in tool_names:
+                    target_tool = "jira_search"
+                    args = {"jql": f"project = {jira_project} ORDER BY created DESC", "limit": max_results}
+                elif "jira_get_project_issues" in tool_names:
+                    target_tool = "jira_get_project_issues"
+                    args = {"project_key": jira_project, "limit": max_results}
+                elif "jira_search_for_issues_using_jql" in tool_names:
+                    target_tool = "jira_search_for_issues_using_jql"
+                    args = {"jql": f"project = {jira_project} ORDER BY created DESC"}
+                else:
+                    logger.info(f"No Jira issue search tool found among discovered tools: {tool_names}. Continuing in requirements-only mode.")
+                    return []
+
                 raw_res = await tool_registry.invoke_tool_safely(
                     project_id=project_id,
                     provider="atlassian",
                     agent_id=agent_id,
-                    tool_name="jira_search",
+                    tool_name=target_tool,
                     arguments=args,
                 )
-                return [{"jql": jql, "raw_content": raw_res}]
+                return [{"jql": f"project = {jira_project}", "raw_content": raw_res, "tool_used": target_tool}]
 
         except Exception as e:
             logger.warning(f"MCP Jira issue retrieval failed: {e}")
-            raise
+            return []
 
     @classmethod
     async def get_github_file(
@@ -123,7 +140,8 @@ class MCPAgentClient:
         """
         repo_slug = cls._get_project_repo_slug(project_id)
         if not repo_slug:
-            raise ValueError(f"Project '{project_id}' has no connected GitHub repository mapped.")
+            logger.info(f"Project '{project_id}' has no connected GitHub repository mapped. Proceeding with user-provided requirements.")
+            return ""
 
         parts = repo_slug.split("/")
         owner = parts[0]
@@ -131,13 +149,17 @@ class MCPAgentClient:
 
         args = {"owner": owner, "repo": repo, "path": file_path, "ref": branch}
 
-        raw_res = await tool_registry.invoke_tool_safely(
-            project_id=project_id,
-            provider="github",
-            agent_id=agent_id,
-            tool_name="get_file_contents",
-            arguments=args,
-        )
+        try:
+            raw_res = await tool_registry.invoke_tool_safely(
+                project_id=project_id,
+                provider="github",
+                agent_id=agent_id,
+                tool_name="get_file_contents",
+                arguments=args,
+            )
+        except Exception as e:
+            logger.info(f"GitHub MCP file read '{file_path}' not available: {e}")
+            return ""
 
         try:
             parsed = json.loads(raw_res)

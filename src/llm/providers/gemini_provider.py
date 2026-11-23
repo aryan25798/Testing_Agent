@@ -172,7 +172,8 @@ class GeminiProvider(BaseLLMProvider):
                 raw_text = raw_text.strip()
 
                 latency = time.time() - start_time
-                data = json.loads(raw_text)
+                from src.core.utils.json_sanitizer import repair_and_parse_json
+                data = repair_and_parse_json(raw_text)
                 return LLMResponse(
                     text=raw_text,
                     structured_data=data,
@@ -183,7 +184,20 @@ class GeminiProvider(BaseLLMProvider):
                     provider="gemini",
                 )
             except Exception as e:
+                err_str = str(e)
                 logger.error(f"Gemini structured output failed: {e}")
+                if any(t in err_str.lower() for t in ["429", "resourceexhausted", "quota", "rate limit", "ratelimit"]):
+                    import re
+                    match = re.search(r"retry in (\d+)", err_str.lower()) or re.search(r"retry after (\d+)", err_str.lower())
+                    retry_sec = int(match.group(1)) if match else 60
+                    from src.core.exceptions import QuotaExceededError
+                    raise QuotaExceededError(
+                        message=f"Gemini API Quota / Rate Limit Exceeded (HTTP 429): {err_str}",
+                        provider="gemini",
+                        retry_after_seconds=retry_sec,
+                        details={"provider": "gemini", "model": target_model, "raw_error": err_str},
+                    ) from e
+
                 raise LLMGenerationError(
                     f"Gemini generate_structured failed for model '{target_model}': {e}",
                     details={"provider": "gemini", "model": target_model},

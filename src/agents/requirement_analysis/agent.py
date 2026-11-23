@@ -78,7 +78,10 @@ Title: {input_data.title}
 
 {wrapped_requirements}
 
-Extract all distinct requirements into the structured format. Ensure every requirement has traceable functional requirements, acceptance criteria, risk level, and clarification questions for any ambiguities."""
+CRITICAL TRACEABILITY RULES:
+1. The user-provided text is the PRIMARY GROUND TRUTH.
+2. If the user provided explicit requirement IDs (such as 'REQ-PAY-001', 'AUTH-101', 'CHECKOUT-01'), you MUST preserve that exact identifier as 'requirement_key'.
+3. Extract all distinct requirements into the structured format. Ensure every requirement has traceable functional requirements, acceptance criteria, risk level, and clarification questions for any ambiguities."""
 
         try:
             data = self.execute_with_llm(
@@ -86,13 +89,17 @@ Extract all distinct requirements into the structured format. Ensure every requi
                 output_schema=RequirementAnalysisOutput,
                 project_id=project_id,
             )
-            if "requirements" in data and data["requirements"]:
-                return RequirementAnalysisOutput.model_validate(data)
+            from src.core.utils.json_sanitizer import normalize_to_schema
+            validated = normalize_to_schema(data, RequirementAnalysisOutput)
+            if validated.requirements:
+                return validated
         except Exception as e:
             logger.warning(f"LLM requirement extraction fell back to rule-based parser: {e}")
 
         # Deterministic Rule-Based Fallback
-        req_key = input_data.jira_issue_key or "REQ-001"
+        import re
+        custom_key_match = re.search(r"\b(REQ-[A-Z0-9_\-]+|[A-Z]+-\d+)\b", input_data.raw_text)
+        req_key = custom_key_match.group(1) if custom_key_match else (input_data.jira_issue_key or "REQ-001")
         return RequirementAnalysisOutput(
             summary=f"Analyzed requirement text ({len(input_data.raw_text.split())} words). Extracted structured baseline.",
             requirements=[

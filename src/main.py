@@ -4,11 +4,12 @@ Hardened with Security Headers, Trusted Host validation, Request Size Limits,
 and Audit Logging.
 """
 
+from pathlib import Path
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from src.config.settings import settings
 from src.core.logging import get_logger
@@ -165,11 +166,50 @@ app.include_router(custom_agents_router, prefix="/api/v1")
 app.include_router(mcp_router, prefix="/api/v1")
 
 
-@app.get("/")
-def root():
-    return {
-        "message": f"Welcome to {settings.APP_NAME}",
-        "version": settings.APP_VERSION,
-        "docs": "/docs",
-        "health": "/api/v1/health",
-    }
+# Static frontend bundle serving & SPA fallback
+frontend_dist_dir = settings.BASE_DIR / "frontend" / "dist" / "frontend" / "browser"
+
+if frontend_dist_dir.exists():
+    logger.info(f"Serving frontend static bundle from {frontend_dist_dir}")
+
+    @app.get("/")
+    async def serve_root():
+        index_file = frontend_dist_dir / "index.html"
+        if index_file.exists():
+            return FileResponse(index_file)
+        return JSONResponse(
+            status_code=200,
+            content={"message": f"Welcome to {settings.APP_NAME}", "version": settings.APP_VERSION},
+        )
+
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        # Do not intercept API docs, OpenAPI, or /api paths
+        if full_path.startswith("api/") or full_path in ("docs", "redoc", "openapi.json"):
+            return JSONResponse(status_code=404, content={"detail": "Not Found"})
+
+        file_path = frontend_dist_dir / full_path
+        if full_path and file_path.exists() and file_path.is_file():
+            return FileResponse(file_path)
+
+        index_file = frontend_dist_dir / "index.html"
+        if index_file.exists():
+            return FileResponse(index_file)
+
+        return JSONResponse(
+            status_code=404,
+            content={"detail": "Frontend static file not found"},
+        )
+else:
+    logger.warning(f"Frontend dist directory not found at {frontend_dist_dir}. Running in API-only mode.")
+
+    @app.get("/")
+    def root():
+        return {
+            "message": f"Welcome to {settings.APP_NAME}",
+            "version": settings.APP_VERSION,
+            "docs": "/docs",
+            "health": "/api/v1/health",
+            "mode": "api_only",
+        }
+

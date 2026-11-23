@@ -72,114 +72,136 @@ class TestCaseDesignAgent(BaseAgent):
 
     def run(self, input_data: TestCaseDesignInput, project_id: Optional[str] = None) -> TestCaseDesignOutput:
         from src.core.security.sanitizer import prompt_sanitizer
+        from src.core.utils.json_sanitizer import normalize_to_schema
 
-        scenario_prompts = []
-        for s in input_data.scenarios:
-            scenario_prompts.append(
-                f"Scenario: {s.scenario_key} (Req: {s.requirement_key})\n"
-                f"Title: {s.title}\n"
-                f"Type: {s.test_type} | Priority: {s.priority}\n"
-                f"Objective: {s.test_objective}\n"
-                f"Expected Outcome: {s.expected_outcome}"
+        scenarios = input_data.scenarios or []
+        if not scenarios:
+            return TestCaseDesignOutput(test_cases=[], total_test_cases=0, summary="No scenarios provided for test case design.")
+
+        # Batch scenarios in chunks of 5 to eliminate token exhaustion and JSON delimiter syntax truncation
+        batch_size = 5
+        batches = [scenarios[i : i + batch_size] for i in range(0, len(scenarios), batch_size)]
+        all_test_cases: List[GeneratedTestCase] = []
+
+        for b_idx, batch in enumerate(batches):
+            scenario_prompts = []
+            for s in batch:
+                scenario_prompts.append(
+                    f"Scenario: {s.scenario_key} (Req: {s.requirement_key})\n"
+                    f"Title: {s.title}\n"
+                    f"Type: {s.test_type} | Priority: {s.priority}\n"
+                    f"Objective: {s.test_objective}\n"
+                    f"Preconditions: {s.preconditions}\n"
+                    f"Expected Outcome: {s.expected_outcome}"
+                )
+
+            wrapped_scenarios = prompt_sanitizer.wrap_untrusted_input(
+                "\n\n".join(scenario_prompts), label=f"client_scenarios_batch_{b_idx + 1}"
             )
 
-        wrapped_scenarios = prompt_sanitizer.wrap_untrusted_input(
-            "\n\n".join(scenario_prompts), label="client_scenarios_data"
-        )
-
-        prompt = f"""Convert these scenarios into detailed, step-by-step test cases with synthetic test data:
+            prompt = f"""Convert these scenarios into granular, step-by-step test cases with synthetic test data:
 
 {wrapped_scenarios}
 
-Return valid JSON matching the TestCaseDesignOutput schema."""
+CRITICAL RULES:
+1. Return valid JSON matching TestCaseDesignOutput.
+2. Ensure every test case references its parent 'scenario_key' and 'requirement_key'.
+3. Include unambiguous 'execution_steps' and synthetic 'test_data'."""
 
-        try:
-            data = self.execute_with_llm(
-                prompt=prompt,
-                output_schema=TestCaseDesignOutput,
-                project_id=project_id,
-            )
-            if "test_cases" in data and data["test_cases"]:
-                return TestCaseDesignOutput.model_validate(data)
-        except Exception as e:
-            logger.warning(f"Test case design LLM fell back to rule-based generator: {e}")
+            batch_succeeded = False
+            try:
+                data = self.execute_with_llm(
+                    prompt=prompt,
+                    output_schema=TestCaseDesignOutput,
+                    project_id=project_id,
+                )
+                if data:
+                    validated = normalize_to_schema(data, TestCaseDesignOutput)
+                    if validated.test_cases:
+                        all_test_cases.extend(validated.test_cases)
+                        batch_succeeded = True
+            except Exception as e:
+                logger.warning(f"Batch {b_idx + 1}/{len(batches)} LLM test case design failed: {e}. Applying rule-based fallback for this batch.")
 
-        # Deterministic Rule-Based Fallback
-        test_cases = []
-        tc_count = 1
-        for s in input_data.scenarios:
-            if s.test_type == "Positive":
-                test_cases.append(
-                    GeneratedTestCase(
-                        test_case_key=f"TC-{tc_count:03d}",
-                        scenario_key=s.scenario_key,
-                        requirement_key=s.requirement_key,
-                        title=f"{s.title} - Standard Flow",
-                        objective=s.test_objective,
-                        test_type="Functional",
-                        priority=s.priority,
-                        preconditions=s.preconditions,
-                        test_environment="QA",
-                        test_data={"username": "qa_tester_01@example.com", "valid_payload": True, "amount": 99.99},
-                        execution_steps=[
-                            ExecutionStep(step_number=1, action="Navigate to the application page under test.", expected="Page loads completely with HTTP 200 within 2 seconds."),
-                            ExecutionStep(step_number=2, action="Fill in valid form data from test_data payload.", expected="Input fields accept entries without validation warnings."),
-                            ExecutionStep(step_number=3, action="Click the primary Submit / Action button.", expected="Submission spinner appears and request dispatches."),
-                            ExecutionStep(step_number=4, action="Inspect the resulting page state and database record.", expected="Success confirmation banner is displayed and record is stored."),
-                        ],
-                        expected_results=s.expected_outcome,
-                        automation_suitability="Yes",
-                        tags=["smoke", "regression", "core"],
-                    )
-                )
-            elif s.test_type == "Negative":
-                test_cases.append(
-                    GeneratedTestCase(
-                        test_case_key=f"TC-{tc_count:03d}",
-                        scenario_key=s.scenario_key,
-                        requirement_key=s.requirement_key,
-                        title=f"{s.title} - Malformed & Empty Inputs",
-                        objective=s.test_objective,
-                        test_type="Negative",
-                        priority=s.priority,
-                        preconditions=s.preconditions,
-                        test_data={"username": "", "invalid_email": "bad_email_format", "special_chars": "'; DROP TABLE users;--"},
-                        execution_steps=[
-                            ExecutionStep(step_number=1, action="Navigate to the form or interface under test.", expected="Form is displayed with clean inputs."),
-                            ExecutionStep(step_number=2, action="Submit form leaving required fields empty.", expected="Validation alerts highlight required missing fields."),
-                            ExecutionStep(step_number=3, action="Enter malformed data from test_data and click submit.", expected="Inline error appears: 'Please enter a valid format'."),
-                        ],
-                        expected_results="Form is not submitted and clear validation messages guide the user.",
-                        automation_suitability="Yes",
-                        tags=["negative", "validation"],
-                    )
-                )
-            else:
-                test_cases.append(
-                    GeneratedTestCase(
-                        test_case_key=f"TC-{tc_count:03d}",
-                        scenario_key=s.scenario_key,
-                        requirement_key=s.requirement_key,
-                        title=f"{s.title} - Boundary & Security Verification",
-                        objective=s.test_objective,
-                        test_type=s.test_type,
-                        priority=s.priority,
-                        preconditions=s.preconditions,
-                        test_data={"boundary_min": 1, "boundary_max": 255, "overflow": "A" * 300},
-                        execution_steps=[
-                            ExecutionStep(step_number=1, action="Navigate to the target endpoint or interface.", expected="Interface renders."),
-                            ExecutionStep(step_number=2, action="Supply maximum boundary length string.", expected="System accepts maximum boundary value safely."),
-                            ExecutionStep(step_number=3, action="Supply string exceeding boundary limit.", expected="Client prevents further typing or API responds with 422 Unprocessable Entity."),
-                        ],
-                        expected_results=s.expected_outcome,
-                        automation_suitability="Yes",
-                        tags=["boundary", "security"],
-                    )
-                )
-            tc_count += 1
+            if not batch_succeeded:
+                # Deterministic Rule-Based Fallback for this batch
+                for s in batch:
+                    tc_idx = len(all_test_cases) + 1
+                    if s.test_type == "Positive":
+                        all_test_cases.append(
+                            GeneratedTestCase(
+                                test_case_key=f"TC-{tc_idx:03d}",
+                                scenario_key=s.scenario_key,
+                                requirement_key=s.requirement_key,
+                                title=f"{s.title} - Standard Flow",
+                                objective=s.test_objective,
+                                test_type="Functional",
+                                priority=s.priority,
+                                preconditions=s.preconditions,
+                                test_environment="QA",
+                                test_data={"username": "qa_tester_01@example.com", "valid_payload": True, "amount": 99.99},
+                                execution_steps=[
+                                    ExecutionStep(step_number=1, action="Navigate to the application page under test.", expected="Page loads completely with HTTP 200 within 2 seconds."),
+                                    ExecutionStep(step_number=2, action="Fill in valid form data from test_data payload.", expected="Input fields accept entries without validation warnings."),
+                                    ExecutionStep(step_number=3, action="Click the primary Submit / Action button.", expected="Submission spinner appears and request dispatches."),
+                                    ExecutionStep(step_number=4, action="Inspect the resulting page state and database record.", expected="Success confirmation banner is displayed and record is stored."),
+                                ],
+                                expected_results=s.expected_outcome,
+                                automation_suitability="Yes",
+                                tags=["smoke", "regression", "core"],
+                            )
+                        )
+                    elif s.test_type == "Negative":
+                        all_test_cases.append(
+                            GeneratedTestCase(
+                                test_case_key=f"TC-{tc_idx:03d}",
+                                scenario_key=s.scenario_key,
+                                requirement_key=s.requirement_key,
+                                title=f"{s.title} - Malformed & Empty Inputs",
+                                objective=s.test_objective,
+                                test_type="Negative",
+                                priority=s.priority,
+                                preconditions=s.preconditions,
+                                test_data={"username": "", "invalid_email": "bad_email_format", "special_chars": "'; DROP TABLE users;--"},
+                                execution_steps=[
+                                    ExecutionStep(step_number=1, action="Navigate to the form or interface under test.", expected="Form is displayed with clean inputs."),
+                                    ExecutionStep(step_number=2, action="Submit form leaving required fields empty.", expected="Validation alerts highlight required missing fields."),
+                                    ExecutionStep(step_number=3, action="Enter malformed data from test_data and click submit.", expected="Inline error appears: 'Please enter a valid format'."),
+                                ],
+                                expected_results="Form is not submitted and clear validation messages guide the user.",
+                                automation_suitability="Yes",
+                                tags=["negative", "validation"],
+                            )
+                        )
+                    else:
+                        all_test_cases.append(
+                            GeneratedTestCase(
+                                test_case_key=f"TC-{tc_idx:03d}",
+                                scenario_key=s.scenario_key,
+                                requirement_key=s.requirement_key,
+                                title=f"{s.title} - Boundary & Security Verification",
+                                objective=s.test_objective,
+                                test_type=s.test_type,
+                                priority=s.priority,
+                                preconditions=s.preconditions,
+                                test_data={"boundary_min": 1, "boundary_max": 255, "overflow": "A" * 300},
+                                execution_steps=[
+                                    ExecutionStep(step_number=1, action="Navigate to the target endpoint or interface.", expected="Interface renders."),
+                                    ExecutionStep(step_number=2, action="Supply maximum boundary length string.", expected="System accepts maximum boundary value safely."),
+                                    ExecutionStep(step_number=3, action="Supply string exceeding boundary limit.", expected="Client prevents further typing or API responds with 422 Unprocessable Entity."),
+                                ],
+                                expected_results=s.expected_outcome,
+                                automation_suitability="Yes",
+                                tags=["boundary", "security"],
+                            )
+                        )
+
+        # Normalize test case keys consecutively
+        for idx, tc in enumerate(all_test_cases, start=1):
+            tc.test_case_key = f"TC-{idx:03d}"
 
         return TestCaseDesignOutput(
-            test_cases=test_cases,
-            total_test_cases=len(test_cases),
-            summary=f"Designed {len(test_cases)} actionable test cases with synthetic test datasets.",
+            test_cases=all_test_cases,
+            total_test_cases=len(all_test_cases),
+            summary=f"Designed {len(all_test_cases)} actionable test cases with synthetic test datasets across {len(batches)} batches.",
         )

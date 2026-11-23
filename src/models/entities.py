@@ -84,6 +84,7 @@ class Requirement(Base):
 
 class TestScenario(Base):
     __tablename__ = "test_scenarios"
+    __test__ = False
     __table_args__ = (
         UniqueConstraint("project_id", "scenario_key", name="uq_scen_project_key"),
     )
@@ -111,6 +112,7 @@ class TestScenario(Base):
 
 class TestCase(Base):
     __tablename__ = "test_cases"
+    __test__ = False
     __table_args__ = (
         UniqueConstraint("project_id", "test_case_key", name="uq_tc_project_key"),
     )
@@ -162,6 +164,7 @@ class AutomationScript(Base):
 
 class TestExecution(Base):
     __tablename__ = "test_executions"
+    __test__ = False
 
     id = Column(String(36), primary_key=True, default=generate_uuid)
     project_id = Column(String(36), ForeignKey("projects.id"), nullable=False, index=True)
@@ -185,6 +188,7 @@ class TestExecution(Base):
 
 class TestExecutionResult(Base):
     __tablename__ = "test_execution_results"
+    __test__ = False
 
     id = Column(String(36), primary_key=True, default=generate_uuid)
     execution_id = Column(String(36), ForeignKey("test_executions.id"), nullable=False, index=True)

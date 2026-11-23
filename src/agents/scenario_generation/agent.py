@@ -94,8 +94,10 @@ Return complete JSON matching the ScenarioGenerationOutput schema."""
                 output_schema=ScenarioGenerationOutput,
                 project_id=project_id,
             )
-            if "scenarios" in data and data["scenarios"]:
-                return ScenarioGenerationOutput.model_validate(data)
+            from src.core.utils.json_sanitizer import normalize_to_schema
+            validated = normalize_to_schema(data, ScenarioGenerationOutput)
+            if validated.scenarios:
+                return validated
         except Exception as e:
             logger.warning(f"Scenario generation LLM fell back to rule-based generator: {e}")
 

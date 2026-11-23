@@ -82,3 +82,18 @@ class WorkflowExecutionTimeoutError(TestingPlatformException):
 class CodeSafetyViolationError(TestingPlatformException):
     """Raised when generated test code violates safety rules or attempts prohibited operations."""
     pass
+
+
+class QuotaExceededError(TestingPlatformException):
+    """Raised when an AI provider rate limit or token quota is exhausted (HTTP 429)."""
+
+    def __init__(
+        self,
+        message: str,
+        provider: str = "ai_provider",
+        retry_after_seconds: Optional[int] = 60,
+        details: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(message, details)
+        self.provider = provider
+        self.retry_after_seconds = retry_after_seconds

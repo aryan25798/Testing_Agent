@@ -5,6 +5,7 @@ and tamper-evident audit logging.
 """
 
 from typing import List, Dict, Any, Optional
+from pathlib import Path
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 from src.llm.registry.model_registry import model_registry
@@ -13,6 +14,7 @@ from src.schemas.dtos import ModelInfo
 from src.core.security.secrets_manager import secrets_manager
 from src.core.security.audit_logger import audit_logger
 from src.core.security.sanitizer import prompt_sanitizer
+from src.config.settings import settings
 
 router = APIRouter(tags=["AI Models & Agent Routing"])
 
@@ -108,6 +110,33 @@ def get_credentials_status():
             is_configured=secrets_manager.is_configured("openai"),
             masked=secrets_manager.get_status("openai").get("masked"),
         ),
+    }
+
+
+@router.get("/models/first-run-status")
+def get_first_run_status():
+    """
+    Checks whether the platform has at least one configured AI provider and browser environment ready.
+    Used by the frontend first-run onboarding wizard.
+    """
+    gemini_ready = secrets_manager.is_configured("gemini")
+    openai_ready = secrets_manager.is_configured("openai")
+
+    browser_ready = True
+    try:
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as p:
+            path = p.chromium.executable_path
+            browser_ready = bool(path and Path(path).exists())
+    except Exception:
+        browser_ready = False
+
+    return {
+        "needs_setup": not (gemini_ready or openai_ready),
+        "gemini_configured": gemini_ready,
+        "openai_configured": openai_ready,
+        "browser_ready": browser_ready,
+        "default_provider": settings.DEFAULT_PROVIDER,
     }
 
 

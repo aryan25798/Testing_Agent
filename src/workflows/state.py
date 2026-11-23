@@ -15,6 +15,7 @@ class TestingWorkflowState(TypedDict):
     source_type: str  # manual | file | jira
     framework: str    # playwright | selenium
     browser: Optional[str]  # chromium | firefox | webkit | chrome
+    headed: Optional[bool]  # True = visually open browser window (watch mode); False = headless
     base_url: str
 
     # Artifacts passed between agents

@@ -5,7 +5,7 @@ without explicit, bound human review and consent.
 """
 
 from typing import List, Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from src.database.session import SessionLocal
 from src.models.entities import MCPApprovalRequest
 from src.core.logging import get_logger
@@ -115,7 +115,7 @@ class MCPApprovalManager:
             req.status = clean_decision
             req.decided_by = decided_by
             req.decision_reason = reason
-            req.decided_at = datetime.utcnow()
+            req.decided_at = datetime.now(timezone.utc)
             db.commit()
 
             audit_logger.log_event(

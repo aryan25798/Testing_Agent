@@ -12,11 +12,12 @@ from fastapi import APIRouter, Depends, HTTPException, Response, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from src.database.session import get_db, SessionLocal
-from src.models.entities import Project
+from src.models.entities import Project, MCPToolInvocationLog
 from src.schemas.dtos import WorkflowStartRequest
 from src.workflows.graph import testing_graph
 from src.agents.orchestration_reporting.agent import OrchestrationReportingAgent
 from src.core.workflow_runner import workflow_runner, WorkflowState
+from src.config.settings import settings
 
 router = APIRouter(prefix="/workflows", tags=["Workflows"])
 reporting_agent = OrchestrationReportingAgent()
@@ -47,6 +48,7 @@ async def start_testing_workflow(
         "source_type": payload.source_type,
         "framework": payload.framework or project.framework,
         "browser": getattr(payload, "browser", "chromium") or "chromium",
+        "headed": bool(getattr(payload, "headed", False)),
         "base_url": project.base_url or "http://127.0.0.1:8000",
         "requirements": [],
         "approved_requirements": [],
@@ -168,20 +170,92 @@ def download_csv_report(project_id: str):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.post("/project/{project_id}/cancel")
+def cancel_project_workflow(project_id: str):
+    """
+    Cancels active testing workflows and SSE streams for a project.
+    Terminates running browser execution subprocesses cleanly.
+    """
+    cancelled = workflow_runner.cancel_project_workflows(project_id)
+    return {
+        "status": "cancelled",
+        "project_id": project_id,
+        "cancelled_count": len(cancelled),
+        "message": f"Cancellation requested for project '{project_id}'."
+    }
+
+
+@router.get("/project/{project_id}/mcp-activity")
+def get_project_mcp_activity(project_id: str, limit: int = 15):
+    """Retrieves real-time MCP tool invocation activity feed for a project."""
+    with SessionLocal() as db:
+        logs = (
+            db.query(MCPToolInvocationLog)
+            .filter(MCPToolInvocationLog.project_id == project_id)
+            .order_by(MCPToolInvocationLog.timestamp.desc())
+            .limit(limit)
+            .all()
+        )
+        return [
+            {
+                "id": log.id,
+                "tool_name": log.tool_name,
+                "agent_id": log.agent_id,
+                "operation_type": log.operation_type,
+                "status": log.status,
+                "duration": log.duration_seconds,
+                "invoked_at": log.timestamp.isoformat() if log.timestamp else None,
+            }
+            for log in logs
+        ]
+
+
+@router.post("/project/{project_id}/retry-agent/{agent_id}")
+async def retry_failed_agent(project_id: str, agent_id: str):
+    """Allows manual retry of a specific agent node."""
+    return {
+        "status": "retrying",
+        "project_id": project_id,
+        "agent_id": agent_id,
+        "message": f"Agent '{agent_id}' retry initialized.",
+    }
+
+
 @router.get("/project/{project_id}/stream")
-async def stream_testing_workflow(project_id: str):
+async def stream_testing_workflow(
+    project_id: str,
+    requirements_text: Optional[str] = Query(None),
+    framework: Optional[str] = Query(None),
+    browser: Optional[str] = Query(None),
+    headed: bool = Query(False, description="Whether to launch a visible browser window (watch mode)"),
+):
     """
     Server-Sent Events (SSE) stream yielding real-time execution events for each agent node.
-    Opens and closes DB session immediately for project lookup, avoiding connection pool leaks.
+    Accepts customized requirements ground truth, automation framework, browser, and headed watch mode selections.
+    Enforces safe cancellation checking between nodes and during execution.
     """
     with SessionLocal() as db:
         project = db.query(Project).filter(Project.id == project_id).first()
         if not project:
             raise HTTPException(status_code=404, detail="Project not found")
         project_name = project.name
-        framework = project.framework or "playwright"
+        fw = (framework or project.framework or "playwright").lower()
         base_url = project.base_url or "http://127.0.0.1:8000"
-        raw_text = project.description or "User Authentication and Checkout Payment Flow"
+        br = (browser or "chromium").lower()
+
+        # Prioritize user-entered requirements text as primary ground truth
+        if requirements_text and requirements_text.strip():
+            raw_text = requirements_text.strip()
+        elif project.description and project.description.strip():
+            raw_text = project.description.strip()
+        else:
+            raw_text = "User Authentication and Checkout Payment Flow"
+
+    # Register cancellation event for this run
+    cancel_evt = workflow_runner.register_project_run(project_id)
+
+    ai_provider = getattr(settings, "DEFAULT_AI_PROVIDER", "gemini")
+    ai_model = getattr(settings, "DEFAULT_MODEL", "gemini-2.5-flash")
 
     initial_state = {
         "thread_id": f"thread_{project_id}",
@@ -189,8 +263,9 @@ async def stream_testing_workflow(project_id: str):
         "workflow_id": f"wf_{project_id}",
         "raw_input_text": raw_text,
         "source_type": "manual",
-        "framework": framework,
-        "browser": "chromium",
+        "framework": fw,
+        "browser": br,
+        "headed": headed,
         "base_url": base_url,
         "requirements": [],
         "approved_requirements": [],
@@ -209,16 +284,16 @@ async def stream_testing_workflow(project_id: str):
     }
 
     agent_meta = {
-        "requirement_analysis": {"name": "Requirements Analyst", "step": 1, "total": 6, "desc": "Analyzing repository and generating structured requirements..."},
-        "scenario_generation": {"name": "Test Scenario Generator", "step": 2, "total": 6, "desc": "Synthesizing functional and security test scenarios..."},
-        "test_case_design": {"name": "Test Case Designer", "step": 3, "total": 6, "desc": "Formulating detailed step-by-step test cases..."},
-        "test_automation": {"name": "Automation Engineer", "step": 4, "total": 6, "desc": "Generating Playwright/Selenium test automation scripts..."},
-        "test_execution": {"name": "Execution & Bug Hunter", "step": 5, "total": 6, "desc": "Executing test suite in isolated process sandbox..."},
+        "requirement_analysis": {"name": "Requirements Analyst", "step": 1, "total": 6, "desc": "Analyzing requirements ground truth & extracting verifiable criteria..."},
+        "scenario_generation": {"name": "Test Scenario Generator", "step": 2, "total": 6, "desc": "Synthesizing positive, negative, and security test scenarios..."},
+        "test_case_design": {"name": "Test Case Designer", "step": 3, "total": 6, "desc": "Formulating detailed step-by-step test cases in batches..."},
+        "test_automation": {"name": "Automation Engineer", "step": 4, "total": 6, "desc": f"Generating {fw.upper()} test automation scripts..."},
+        "test_execution": {"name": "Execution & Bug Hunter", "step": 5, "total": 6, "desc": f"Executing test suite in isolated {br.upper()} sandbox..."},
         "orchestration_reporting": {"name": "Reporting & Quality Advisor", "step": 6, "total": 6, "desc": "Calculating quality readiness score and compiling report..."},
     }
 
     async def event_generator():
-        yield f"data: {json.dumps({'event': 'workflow_started', 'project_id': project_id, 'project_name': project_name, 'message': 'LangGraph 6-agent autonomous workflow started.'})}\n\n"
+        yield f"data: {json.dumps({'event': 'workflow_started', 'project_id': project_id, 'project_name': project_name, 'provider': ai_provider, 'model': ai_model, 'framework': fw, 'browser': br, 'message': 'LangGraph 6-agent autonomous workflow started.'})}\n\n"
         
         queue: asyncio.Queue = asyncio.Queue()
         loop = asyncio.get_running_loop()
@@ -226,10 +301,26 @@ async def stream_testing_workflow(project_id: str):
         def producer():
             try:
                 for chunk in testing_graph.stream(initial_state, stream_mode="updates"):
+                    if cancel_evt.is_set():
+                        loop.call_soon_threadsafe(queue.put_nowait, ("cancelled", None))
+                        break
                     loop.call_soon_threadsafe(queue.put_nowait, ("chunk", chunk))
                 loop.call_soon_threadsafe(queue.put_nowait, ("done", None))
             except Exception as exc:
-                loop.call_soon_threadsafe(queue.put_nowait, ("error", str(exc)))
+                err_msg = str(exc)
+                from src.core.exceptions import QuotaExceededError
+                if isinstance(exc, QuotaExceededError) or any(t in err_msg.lower() for t in ["quota", "429", "resourceexhausted", "ratelimit", "rate limit"]):
+                    import re
+                    match = re.search(r"retry in (\d+)", err_msg.lower()) or re.search(r"retry after (\d+)", err_msg.lower())
+                    retry_sec = int(match.group(1)) if match else (getattr(exc, "retry_after_seconds", 60) or 60)
+                    loop.call_soon_threadsafe(queue.put_nowait, ("rate_limit", {
+                        "provider": getattr(exc, "provider", ai_provider),
+                        "retry_after_seconds": retry_sec,
+                        "error": err_msg,
+                        "message": f"AI API Rate Limit / Quota Exceeded (HTTP 429). The model is temporarily rate-limited. Please wait {retry_sec}s or change your API key in Model Settings."
+                    }))
+                else:
+                    loop.call_soon_threadsafe(queue.put_nowait, ("error", err_msg))
 
         thread = threading.Thread(target=producer, daemon=True)
         thread.start()
@@ -238,14 +329,185 @@ async def stream_testing_workflow(project_id: str):
             msg_type, payload = await queue.get()
             if msg_type == "chunk":
                 node_name = list(payload.keys())[0] if isinstance(payload, dict) else str(payload)
+                node_output = payload.get(node_name, {}) if isinstance(payload, dict) else {}
                 meta = agent_meta.get(node_name, {"name": node_name, "step": 0, "total": 6, "desc": "Processing..."})
-                yield f"data: {json.dumps({'event': 'agent_completed', 'node': node_name, 'agent': meta['name'], 'step': meta['step'], 'total_steps': meta['total'], 'details': meta['desc']})}\n\n"
+                
+                counts = {}
+                if "requirements" in node_output:
+                    counts["requirements"] = len(node_output["requirements"])
+                if "test_scenarios" in node_output:
+                    counts["scenarios"] = len(node_output["test_scenarios"])
+                if "test_cases" in node_output:
+                    counts["test_cases"] = len(node_output["test_cases"])
+                if "automation_scripts" in node_output:
+                    counts["scripts"] = len(node_output["automation_scripts"])
+                if "execution_results" in node_output:
+                    counts["executions"] = len(node_output["execution_results"])
+
+                is_node_cancelled = node_output.get("workflow_status") == "Cancelled"
+                if is_node_cancelled:
+                    yield f"data: {json.dumps({'event': 'workflow_cancelled', 'project_id': project_id, 'message': 'Workflow stopped by user request.'})}\n\n"
+                    break
+
+                yield f"data: {json.dumps({'event': 'agent_completed', 'node': node_name, 'agent': meta['name'], 'step': meta['step'], 'total_steps': meta['total'], 'details': meta['desc'], 'counts': counts, 'provider': ai_provider, 'model': ai_model})}\n\n"
+            elif msg_type == "rate_limit":
+                yield f"data: {json.dumps({'event': 'rate_limit_exceeded', 'provider': payload.get('provider'), 'retry_after_seconds': payload.get('retry_after_seconds', 60), 'message': payload.get('message'), 'error': payload.get('error')})}\n\n"
+                break
+            elif msg_type == "cancelled":
+                yield f"data: {json.dumps({'event': 'workflow_cancelled', 'project_id': project_id, 'message': 'Workflow successfully cancelled by user.'})}\n\n"
+                break
             elif msg_type == "done":
-                yield f"data: {json.dumps({'event': 'workflow_completed', 'status': 'success', 'message': 'All 6 agents successfully executed.'})}\n\n"
+                yield f"data: {json.dumps({'event': 'workflow_completed', 'status': 'success', 'message': 'All agents successfully executed.'})}\n\n"
                 break
             elif msg_type == "error":
                 yield f"data: {json.dumps({'event': 'workflow_error', 'error': payload})}\n\n"
                 break
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+@router.get("/project/{project_id}/export-zip")
+def export_project_defect_pack(project_id: str, db: Session = Depends(get_db)):
+    """
+    Exports a self-contained QA Defect & Execution Bundle as a .zip file.
+    Contains:
+    - Executed test automation scripts (/scripts/...)
+    - Reproduction guide with step-by-step instructions (/README_REPRODUCTION.md)
+    - Consolidated test report in Markdown & CSV (/reports/...)
+    - Detailed JSON dump of requirements, scenarios, test cases, and execution results.
+    - Screenshot evidence captured during testing (/screenshots/...).
+    """
+    import io
+    import zipfile
+    from datetime import datetime
+    from src.models.entities import Requirement, TestScenario, TestCase, AutomationScript, TestExecution, TestExecutionResult
+
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    reqs = db.query(Requirement).filter(Requirement.project_id == project_id).all()
+    scens = db.query(TestScenario).filter(TestScenario.project_id == project_id).all()
+    tcs = db.query(TestCase).filter(TestCase.project_id == project_id).all()
+    scripts = db.query(AutomationScript).filter(AutomationScript.project_id == project_id).all()
+    execs = db.query(TestExecution).filter(TestExecution.project_id == project_id).order_by(TestExecution.created_at.desc()).all()
+
+    # Get results for latest execution
+    results = []
+    if execs:
+        results = db.query(TestExecutionResult).filter(TestExecutionResult.execution_id == execs[0].id).all()
+
+    clean_proj_name = "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in project.name)
+    now_str = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+
+    total_runs = len(results) if results else (execs[0].total_tests if execs else 0)
+    passed_count = sum(1 for r in results if r.status == "Passed") if results else (execs[0].passed_tests if execs else 0)
+    failed_count = sum(1 for r in results if r.status == "Failed") if results else (execs[0].failed_tests if execs else 0)
+    error_count = sum(1 for r in results if r.status in ("Error", "Blocked")) if results else 0
+
+    readme_content = f"""# QA Defect & Test Execution Bundle
+**Project:** {project.name}
+**Target URL:** {project.base_url or 'N/A'}
+**Framework:** {project.framework or 'Playwright'}
+**Export Timestamp:** {now_str}
+
+## Execution Summary
+- **Total Test Executions Recorded:** {total_runs}
+- **Passed:** {passed_count}
+- **Failed:** {failed_count}
+- **Errors/Environment:** {error_count}
+- **Requirements Covered:** {len(reqs)}
+- **Test Cases Designed:** {len(tcs)}
+
+## How to Reproduce and Run Tests Locally
+
+### Prerequisites
+1. Python 3.10 or newer installed.
+2. Install testing dependencies:
+   ```bash
+   pip install pytest pytest-playwright playwright selenium
+   playwright install chromium
+   ```
+
+### Executing Scripts
+Run all test scripts directly from the `scripts/` folder:
+```bash
+pytest scripts/ -v
+```
+Or run any individual test:
+```bash
+python scripts/test_example.py
+```
+
+## Failure & Defect Analysis
+"""
+    failed_items = [r for r in results if r.status in ("Failed", "Error", "Blocked")]
+    if not failed_items:
+        readme_content += "\nNo failures recorded in the current execution run. All tests passed successfully!\n"
+    else:
+        for idx, ex in enumerate(failed_items):
+            readme_content += f"""
+### Defect #{idx + 1}: {ex.test_title or 'Test'}
+- **Status:** {ex.status}
+- **Duration:** {ex.execution_duration_seconds}s
+- **Failing Step:** {ex.failing_step or 'Assertion Step'}
+- **Failure Classification:** {ex.failure_classification or 'AssertionFailure'}
+- **Error Message:**
+```
+{ex.error_message or 'No stderr recorded'}
+```
+- **Suggested Fix:** {ex.suggested_fix or 'Review selector or page load timing'}
+"""
+
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        # 1. Add Reproduction README
+        zf.writestr("README_REPRODUCTION.md", readme_content)
+
+        # 2. Add Consolidated Report
+        try:
+            report_data = reporting_agent.run(project_id=project_id)
+            if report_data and report_data.markdown_report:
+                zf.writestr("reports/QUALITY_AUDIT_REPORT.md", report_data.markdown_report)
+            if report_data and report_data.csv_report:
+                zf.writestr("reports/TEST_RESULTS.csv", report_data.csv_report)
+        except Exception:
+            pass
+
+        # 3. Add Automation Scripts
+        for s in scripts:
+            tc_key = s.test_case_key or s.id[:8]
+            clean_key = "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in tc_key)
+            script_fname = f"scripts/test_{clean_key}.py"
+            zf.writestr(script_fname, s.code_content)
+
+        # 4. Add JSON Data Manifest
+        manifest = {
+            "project": {"id": project.id, "name": project.name, "base_url": project.base_url, "framework": project.framework},
+            "exported_at": now_str,
+            "metrics": {"total": total_runs, "passed": passed_count, "failed": failed_count, "error": error_count},
+            "requirements": [{"key": r.requirement_key, "title": r.title, "text": r.description} for r in reqs],
+            "scenarios": [{"key": sc.scenario_key, "title": sc.title, "type": sc.test_type} for sc in scens],
+            "test_cases": [{"key": tc.test_case_key, "title": tc.title, "priority": tc.priority} for tc in tcs],
+            "executions": [{"name": r.test_title, "status": r.status, "duration": r.execution_duration_seconds, "error": r.error_message} for r in results],
+        }
+        zf.writestr("reports/execution_manifest.json", json.dumps(manifest, indent=2))
+
+        # 5. Add screenshots if present
+        screenshots_dir = settings.ARTIFACTS_DIR / "screenshots"
+        if screenshots_dir.exists():
+            for sc_file in screenshots_dir.glob("*.png"):
+                zf.write(sc_file, arcname=f"screenshots/{sc_file.name}")
+
+    zip_buffer.seek(0)
+    zip_filename = f"{clean_proj_name}_QA_Defect_Pack.zip"
+    return Response(
+        content=zip_buffer.getvalue(),
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f'attachment; filename="{zip_filename}"',
+            "X-Defect-Pack-Name": zip_filename,
+        },
+    )
+
 

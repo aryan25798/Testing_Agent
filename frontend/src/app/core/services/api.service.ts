@@ -27,7 +27,14 @@ import {
 })
 export class ApiService {
   private http = inject(HttpClient);
-  private baseUrl = environment.apiBaseUrl;
+  private baseUrl = this.resolveBaseUrl();
+
+  private resolveBaseUrl(): string {
+    if (typeof window !== 'undefined' && window.location.port !== '4200') {
+      return '/api/v1';
+    }
+    return environment.apiBaseUrl;
+  }
 
   // Dashboard
   getDashboardOverview(): Observable<DashboardOverview> {
@@ -268,8 +275,60 @@ export class ApiService {
     return `${this.baseUrl}/workflows/project/${projectId}/report/csv`;
   }
 
-  getWorkflowStreamUrl(projectId: string): string {
-    return `${this.baseUrl}/workflows/project/${projectId}/stream`;
+  getWorkflowStreamUrl(
+    projectId: string,
+    options?: { requirementsText?: string; framework?: string; browser?: string; headed?: boolean }
+  ): string {
+    let url = `${this.baseUrl}/workflows/project/${projectId}/stream`;
+    const params = new URLSearchParams();
+    if (options?.requirementsText) {
+      params.set('requirements_text', options.requirementsText);
+    }
+    if (options?.framework) {
+      params.set('framework', options.framework);
+    }
+    if (options?.browser) {
+      params.set('browser', options.browser);
+    }
+    if (options?.headed !== undefined) {
+      params.set('headed', options.headed ? 'true' : 'false');
+    }
+    const qs = params.toString();
+    return qs ? `${url}?${qs}` : url;
+  }
+
+  downloadDefectPack(projectId: string): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/workflows/project/${projectId}/export-zip`, {
+      responseType: 'blob',
+    });
+  }
+
+  getFirstRunStatus(): Observable<{
+    needs_setup: boolean;
+    gemini_configured: boolean;
+    openai_configured: boolean;
+    browser_ready: boolean;
+    default_provider: string;
+  }> {
+    return this.http.get<{
+      needs_setup: boolean;
+      gemini_configured: boolean;
+      openai_configured: boolean;
+      browser_ready: boolean;
+      default_provider: string;
+    }>(`${this.baseUrl}/models/first-run-status`);
+  }
+
+  cancelProjectWorkflow(projectId: string): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/workflows/project/${projectId}/cancel`, {});
+  }
+
+  getProjectMcpActivity(projectId: string, limit: number = 15): Observable<any[]> {
+    return this.http.get<any[]>(`${this.baseUrl}/workflows/project/${projectId}/mcp-activity?limit=${limit}`);
+  }
+
+  retryFailedAgent(projectId: string, agentId: string): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/workflows/project/${projectId}/retry-agent/${agentId}`, {});
   }
 
   // Integrations
