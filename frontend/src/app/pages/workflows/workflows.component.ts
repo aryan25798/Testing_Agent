@@ -677,8 +677,13 @@ export class WorkflowsComponent implements OnInit, OnDestroy {
           this.loadMcpActivity();
         } else if (data.event === 'agent_completed') {
           this.currentStepIndex = data.step;
-          this.activeAgentName = data.agent;
-          this.activeOperation = data.details;
+          if (this.currentStepIndex < this.pipelineSteps.length) {
+            this.activeAgentName = this.pipelineSteps[this.currentStepIndex].name;
+            this.activeOperation = `Executing ${this.pipelineSteps[this.currentStepIndex].name}...`;
+          } else {
+            this.activeAgentName = data.agent;
+            this.activeOperation = data.details;
+          }
           
           let countStr = '';
           if (data.counts) {
@@ -708,13 +713,13 @@ export class WorkflowsComponent implements OnInit, OnDestroy {
           this.loadMcpActivity();
           // Load final report metrics
           this.api.getProjectReport(this.selectedProjectId).subscribe({
-            next: (rep) => {
+            next: (rep: any) => {
               this.workflowResult = {
-                total_requirements: rep.requirements_count || 4,
-                total_scenarios: rep.scenarios_count || 4,
-                total_test_cases: rep.test_cases_count || 4,
-                total_scripts: rep.automation_scripts_count || 6,
-                report_summary: rep.executive_summary || 'Autonomous testing completed with 100% pass rate.',
+                total_requirements: rep.total_requirements ?? rep.requirements_count ?? 0,
+                total_scenarios: rep.total_scenarios ?? rep.scenarios_count ?? 0,
+                total_test_cases: rep.total_test_cases ?? rep.test_cases_count ?? 0,
+                total_scripts: rep.automated_test_cases ?? rep.total_scripts ?? rep.automation_scripts_count ?? 0,
+                report_summary: rep.executive_summary || rep.markdown_report || 'Autonomous testing completed.',
               };
             },
           });

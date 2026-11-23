@@ -77,6 +77,23 @@ def requirement_node(state: TestingWorkflowState) -> Dict[str, Any]:
     raw_text = state["raw_input_text"]
     source_type = state.get("source_type", "manual")
 
+    import re
+    target_count = state.get("target_test_count")
+    if not target_count and raw_text:
+        m = re.search(r'\b(?:only|generate|create|limit\s+to|at\s+most)\s+(\d+)\s*(?:login\s+)?tests?\b', raw_text, re.IGNORECASE)
+        if m:
+            target_count = int(m.group(1))
+            logger.info(f"Detected explicit user test count constraint: {target_count}")
+
+    # On new run, wipe stale artifacts for this project to prevent accumulation of old test cases
+    if state.get("project_id"):
+        with SessionLocal() as db:
+            db.query(AutomationScript).filter(AutomationScript.project_id == state["project_id"]).delete()
+            db.query(TestCase).filter(TestCase.project_id == state["project_id"]).delete()
+            db.query(TestScenario).filter(TestScenario.project_id == state["project_id"]).delete()
+            db.query(Requirement).filter(Requirement.project_id == state["project_id"]).delete()
+            db.commit()
+
     if state.get("project_id"):
         parts = []
         try:
@@ -162,6 +179,7 @@ def requirement_node(state: TestingWorkflowState) -> Dict[str, Any]:
     return {
         "requirements": reqs_dicts,
         "approved_requirements": reqs_dicts,
+        "target_test_count": target_count,
         "current_agent": "agent_1_requirement_analysis",
         "step_count": state.get("step_count", 0) + 1,
     }
@@ -179,7 +197,7 @@ def scenario_node(state: TestingWorkflowState) -> Dict[str, Any]:
     from src.agents.requirement_analysis.agent import ExtractedRequirement
     req_objs = [ExtractedRequirement.model_validate(r) for r in state["approved_requirements"]]
     inp = ScenarioGenerationInput(requirements=req_objs)
-    result = scen_agent.run(inp, project_id=state["project_id"])
+    result = scen_agent.run(inp, project_id=state["project_id"], target_count=state.get("target_test_count"))
     scen_dicts = [s.model_dump() for s in result.scenarios]
 
     # Save to database
@@ -227,6 +245,7 @@ def scenario_node(state: TestingWorkflowState) -> Dict[str, Any]:
     return {
         "test_scenarios": scen_dicts,
         "approved_scenarios": scen_dicts,
+        "target_test_count": state.get("target_test_count"),
         "current_agent": "agent_2_scenario_generation",
         "step_count": state["step_count"] + 1,
     }
@@ -242,7 +261,7 @@ def test_case_node(state: TestingWorkflowState) -> Dict[str, Any]:
     logger.info("Executing Agent 3: Test Case Design...")
     scen_objs = [GeneratedScenario.model_validate(s) for s in state["approved_scenarios"]]
     inp = TestCaseDesignInput(scenarios=scen_objs)
-    result = tc_agent.run(inp, project_id=state["project_id"])
+    result = tc_agent.run(inp, project_id=state["project_id"], target_count=state.get("target_test_count"))
     tc_dicts = [tc.model_dump() for tc in result.test_cases]
 
     # Save to database

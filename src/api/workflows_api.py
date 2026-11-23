@@ -129,7 +129,18 @@ def get_project_report(project_id: str):
     """Retrieves consolidated report data for a project."""
     try:
         report = reporting_agent.generate_consolidated_report(project_id=project_id)
-        return report.model_dump()
+        data = report.model_dump()
+        # Provide compatible keys for frontend dashboards
+        data["total_requirements"] = report.total_requirements
+        data["requirements_count"] = report.total_requirements
+        data["total_scenarios"] = report.total_scenarios
+        data["scenarios_count"] = report.total_scenarios
+        data["total_test_cases"] = report.total_test_cases
+        data["test_cases_count"] = report.total_test_cases
+        data["total_scripts"] = report.automated_test_cases
+        data["automation_scripts_count"] = report.automated_test_cases
+        data["executive_summary"] = report.markdown_report[:300] if report.markdown_report else "Autonomous testing completed."
+        return data
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 

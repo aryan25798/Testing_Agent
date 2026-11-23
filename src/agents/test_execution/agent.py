@@ -363,11 +363,16 @@ for name, obj in list(locals().items()):
                 with sync_playwright() as p:
                     b_type = "{browser_lower}"
                     launch_kwargs = {{"headless": {headless_val}}}
+                    if {headed}:
+                        launch_kwargs["slow_mo"] = 1200
+                        launch_kwargs["args"] = ["--start-maximized"]
                     if b_type in ("firefox", "webkit", "chromium"):
                         browser_inst = getattr(p, b_type).launch(**launch_kwargs)
                     else:
                         browser_inst = p.chromium.launch(**launch_kwargs)
                     context_kwargs = {{"base_url": "{base_url}"}}
+                    if {headed}:
+                        context_kwargs["no_viewport"] = True
                     if "{proxy_server}":
                         context_kwargs["proxy"] = {{"server": "{proxy_server}"}}
                         if "{proxy_bypass}":
@@ -376,6 +381,9 @@ for name, obj in list(locals().items()):
                     pw_page = ctx.new_page()
                     try:
                         obj(pw_page)
+                        if {headed}:
+                            import time
+                            time.sleep(2)
                     finally:
                         pw_page.close()
                         ctx.close()
@@ -388,6 +396,8 @@ for name, obj in list(locals().items()):
                     opts = FOptions()
                     if not {headed}:
                         opts.add_argument("--headless")
+                    else:
+                        opts.add_argument("--start-maximized")
                     if "{proxy_server}":
                         opts.add_argument(f"--proxy-server={proxy_server}")
                     drv = webdriver.Firefox(options=opts)
@@ -396,12 +406,17 @@ for name, obj in list(locals().items()):
                     opts = Options()
                     if not {headed}:
                         opts.add_argument("--headless=new")
+                    else:
+                        opts.add_argument("--start-maximized")
                     opts.add_argument("--no-sandbox")
                     if "{proxy_server}":
                         opts.add_argument(f"--proxy-server={proxy_server}")
                     drv = webdriver.Chrome(options=opts)
                 try:
                     obj(drv)
+                    if {headed}:
+                        import time
+                        time.sleep(2)
                 finally:
                     drv.quit()
             else:

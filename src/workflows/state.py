@@ -17,6 +17,7 @@ class TestingWorkflowState(TypedDict):
     browser: Optional[str]  # chromium | firefox | webkit | chrome
     headed: Optional[bool]  # True = visually open browser window (watch mode); False = headless
     base_url: str
+    target_test_count: Optional[int]  # Explicit user limit (e.g., 3 if user said "only 3 tests")
 
     # Artifacts passed between agents
     requirements: List[Dict[str, Any]]

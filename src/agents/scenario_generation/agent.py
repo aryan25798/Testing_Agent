@@ -41,13 +41,13 @@ SYSTEM_INSTRUCTIONS = """You are a Principal Test Automation Architect and QA Sc
 Your mission is to take approved software requirements and design a thorough, balanced suite of test scenarios.
 
 TEST SCENARIO STRATEGY:
-1. Generate BOTH Positive (happy path) AND Negative (error handling, invalid input) scenarios.
-2. Include Boundary Value Analysis and Equivalence Partitioning scenarios.
-3. Include Security / Authorization scenarios (unauthorized access, session timeout, payload injection).
-4. Include Edge Case scenarios (empty fields, max characters, rapid repeated clicks).
-5. Maintain strict traceability: every scenario must link to its parent 'requirement_key'.
-6. Do not generate redundant duplicate scenarios.
-7. Return only valid JSON conforming to the requested schema.
+1. STRICT USER COUNT & SCOPE COMPLIANCE:
+   - If the user requirements specify an explicit count or target (e.g. "create only 3 login tests with three different roles", "3 scenarios", "limit to 5"), you MUST generate EXACTLY that requested number of scenarios!
+   - NEVER generate dozens of unrequested scenarios when the user explicitly asked for a small specific set.
+2. If no count is specified, generate balanced Positive, Negative, Boundary, and Security scenarios.
+3. Maintain strict traceability: every scenario must link to its parent 'requirement_key'.
+4. Do not generate redundant duplicate scenarios.
+5. Return only valid JSON conforming to the requested schema.
 """
 
 
@@ -59,8 +59,9 @@ class ScenarioGenerationAgent(BaseAgent):
             system_instructions=SYSTEM_INSTRUCTIONS,
         )
 
-    def run(self, input_data: ScenarioGenerationInput, project_id: Optional[str] = None) -> ScenarioGenerationOutput:
+    def run(self, input_data: ScenarioGenerationInput, project_id: Optional[str] = None, target_count: Optional[int] = None) -> ScenarioGenerationOutput:
         from src.core.security.sanitizer import prompt_sanitizer
+        import re
 
         req_summaries = []
         for r in input_data.requirements:
@@ -72,20 +73,33 @@ class ScenarioGenerationAgent(BaseAgent):
                 f"Business Rules: {'; '.join(r.business_rules)}"
             )
 
+        combined_text = "\n\n".join(req_summaries)
+        
+        # Auto-detect target count from text if not explicitly provided
+        if target_count is None:
+            match = re.search(r'\b(?:only|generate|create|limit\s+to|at\s+most)\s+(\d+)\s*(?:login\s+)?tests?\b', combined_text, re.IGNORECASE)
+            if match:
+                target_count = int(match.group(1))
+
         wrapped_reqs = prompt_sanitizer.wrap_untrusted_input(
-            "\n\n".join(req_summaries), label="approved_requirements_data"
+            combined_text, label="approved_requirements_data"
         )
 
-        prompt = f"""Generate comprehensive test scenarios for the following approved requirements data:
+        count_instruction = ""
+        if target_count:
+            count_instruction = f"""
+STRICT QUANTITY REQUIREMENT:
+The user explicitly requested EXACTLY {target_count} tests/scenarios.
+You MUST output EXACTLY {target_count} scenarios and NO MORE!
+For example, if 3 different roles are requested, output exactly 3 scenarios (one for each role).
+Do NOT generate extra boundary or negative scenarios that exceed the {target_count} scenario limit!"""
+
+        prompt = f"""Generate test scenarios for the following approved requirements data:
 
 {wrapped_reqs}
+{count_instruction}
 
-Ensure every requirement has:
-1. Positive test scenario
-2. Negative test scenario
-3. Boundary / edge case scenario
-4. Security / session scenario
-
+If no specific count is requested, ensure requirements have positive, negative, and boundary scenarios.
 Return complete JSON matching the ScenarioGenerationOutput schema."""
 
         try:
@@ -97,6 +111,10 @@ Return complete JSON matching the ScenarioGenerationOutput schema."""
             from src.core.utils.json_sanitizer import normalize_to_schema
             validated = normalize_to_schema(data, ScenarioGenerationOutput)
             if validated.scenarios:
+                if target_count and len(validated.scenarios) > target_count:
+                    logger.info(f"Capping generated scenarios from {len(validated.scenarios)} to user-requested limit {target_count}.")
+                    validated.scenarios = validated.scenarios[:target_count]
+                    validated.total_scenarios = len(validated.scenarios)
                 return validated
         except Exception as e:
             logger.warning(f"Scenario generation LLM fell back to rule-based generator: {e}")

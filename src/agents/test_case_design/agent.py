@@ -70,13 +70,17 @@ class TestCaseDesignAgent(BaseAgent):
             system_instructions=SYSTEM_INSTRUCTIONS,
         )
 
-    def run(self, input_data: TestCaseDesignInput, project_id: Optional[str] = None) -> TestCaseDesignOutput:
+    def run(self, input_data: TestCaseDesignInput, project_id: Optional[str] = None, target_count: Optional[int] = None) -> TestCaseDesignOutput:
         from src.core.security.sanitizer import prompt_sanitizer
         from src.core.utils.json_sanitizer import normalize_to_schema
 
         scenarios = input_data.scenarios or []
         if not scenarios:
             return TestCaseDesignOutput(test_cases=[], total_test_cases=0, summary="No scenarios provided for test case design.")
+
+        if target_count and len(scenarios) > target_count:
+            logger.info(f"Limiting input scenarios for test case design to target count {target_count}.")
+            scenarios = scenarios[:target_count]
 
         # Batch scenarios in chunks of 5 to eliminate token exhaustion and JSON delimiter syntax truncation
         batch_size = 5
@@ -195,6 +199,10 @@ CRITICAL RULES:
                                 tags=["boundary", "security"],
                             )
                         )
+
+        if target_count and len(all_test_cases) > target_count:
+            logger.info(f"Capping designed test cases from {len(all_test_cases)} to target count {target_count}.")
+            all_test_cases = all_test_cases[:target_count]
 
         # Normalize test case keys consecutively
         for idx, tc in enumerate(all_test_cases, start=1):

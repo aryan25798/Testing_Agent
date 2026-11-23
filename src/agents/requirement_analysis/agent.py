@@ -45,13 +45,15 @@ class RequirementAnalysisOutput(BaseModel):
 SYSTEM_INSTRUCTIONS = """You are an expert Principal Software Testing & QA Requirements Analyst.
 Your mission is to rigorously analyze requirements (user stories, acceptance criteria, business rules, PRDs) and extract structured, testable requirements.
 
-STRICT RULES:
-1. NEVER INVENT MISSING BUSINESS REQUIREMENTS. If information is missing, record it in 'missing_information' and formulate a question in 'clarification_questions'.
-2. Identify both functional and non-functional requirements.
-3. Identify clear, measurable acceptance criteria.
-4. Categorize risk (Low/Medium/High/Critical) and priority.
-5. Determine testability status: Testable, Needs Clarification, or Untestable.
-6. Return only valid JSON conforming to the requested schema.
+STRICT OVERRIDING RULES:
+1. USER SCOPING DIRECTIVES ARE TOP PRIORITY:
+   - If the user explicitly specifies a target scope or quantity limit (e.g. "create only 3 login tests", "limit to 5 test cases", "only test login with three different roles"), you MUST TREAT THIS AS AN OVERRIDING SCOPING FILTER.
+   - Do NOT extract dozens of unrequested background requirements from long PRD text if the user explicitly asked to focus on a specific feature or test count.
+   - Extract ONLY the requirement(s) directly requested by the user's explicit directive (e.g., Role-based login authentication covering the 3 requested roles).
+2. NEVER INVENT MISSING BUSINESS REQUIREMENTS outside the requested scope.
+3. Identify both functional and non-functional requirements within the requested scope.
+4. Identify clear, measurable acceptance criteria.
+5. Return only valid JSON conforming to the requested schema.
 """
 
 
@@ -78,10 +80,11 @@ Title: {input_data.title}
 
 {wrapped_requirements}
 
-CRITICAL TRACEABILITY RULES:
-1. The user-provided text is the PRIMARY GROUND TRUTH.
-2. If the user provided explicit requirement IDs (such as 'REQ-PAY-001', 'AUTH-101', 'CHECKOUT-01'), you MUST preserve that exact identifier as 'requirement_key'.
-3. Extract all distinct requirements into the structured format. Ensure every requirement has traceable functional requirements, acceptance criteria, risk level, and clarification questions for any ambiguities."""
+CRITICAL TRACEABILITY & SCOPING RULES:
+1. USER DIRECTIVE PRIORITY: Look for explicit user directives or count constraints at the top of the input (e.g., 'create only 3 login tests with three different roles', 'only test checkout', 'limit to 5').
+2. If an explicit user instruction/directive is present, it OVERRIDES general specification extraction! Extract ONLY the specific requirements needed to satisfy the user's targeted request. Do NOT extract unrequested features from the background PRD text!
+3. If no specific user directive is given, extract all distinct requirements systematically.
+4. Preserve any explicit user requirement IDs as 'requirement_key'."""
 
         try:
             data = self.execute_with_llm(
