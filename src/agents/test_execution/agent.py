@@ -366,7 +366,11 @@ for name, obj in list(locals().items()):
                     if {headed}:
                         launch_kwargs["slow_mo"] = 1200
                         launch_kwargs["args"] = ["--start-maximized"]
-                    if b_type in ("firefox", "webkit", "chromium"):
+                        import os
+                        chrome_exe = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
+                        if os.path.exists(chrome_exe) and b_type in ("chromium", "chrome"):
+                            launch_kwargs["channel"] = "chrome"
+                    if b_type in ("firefox", "webkit"):
                         browser_inst = getattr(p, b_type).launch(**launch_kwargs)
                     else:
                         browser_inst = p.chromium.launch(**launch_kwargs)
@@ -457,6 +461,15 @@ print("Execution verification completed.")
             "no_proxy",
             "REQUESTS_CA_BUNDLE",
             "SSL_CERT_FILE",
+            "COMSPEC",
+            "ALLUSERSPROFILE",
+            "PROGRAMDATA",
+            "PROGRAMFILES",
+            "ProgramFiles(x86)",
+            "COMMONPROGRAMFILES",
+            "WINDIR",
+            "OS",
+            "SESSIONNAME",
         ]
         isolated_env = {k: os.environ[k] for k in safe_env_keys if k in os.environ}
 

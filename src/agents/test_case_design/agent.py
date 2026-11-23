@@ -125,13 +125,91 @@ CRITICAL RULES:
                         all_test_cases.extend(validated.test_cases)
                         batch_succeeded = True
             except Exception as e:
+                from src.core.exceptions import QuotaExceededError
+                err_str = str(e).lower()
+                if isinstance(e, QuotaExceededError) or any(t in err_str for t in ["quota", "429", "resourceexhausted", "rate limit", "rate_limit"]):
+                    logger.error(f"AI Quota Exceeded in TestCaseDesignAgent: {e}. Re-raising to notify workflow.")
+                    raise e
                 logger.warning(f"Batch {b_idx + 1}/{len(batches)} LLM test case design failed: {e}. Applying rule-based fallback for this batch.")
 
             if not batch_succeeded:
                 # Deterministic Rule-Based Fallback for this batch
                 for s in batch:
                     tc_idx = len(all_test_cases) + 1
-                    if s.test_type == "Positive":
+                    s_lower = s.title.lower()
+                    if "admin" in s_lower:
+                        all_test_cases.append(
+                            GeneratedTestCase(
+                                test_case_key=f"TC-{tc_idx:03d}",
+                                scenario_key=s.scenario_key,
+                                requirement_key=s.requirement_key,
+                                title="Verify Admin Role Login & Dashboard Access",
+                                objective="Confirm successful authentication for Administrator with full cohort allocation privileges.",
+                                test_type="Functional",
+                                priority="Critical",
+                                preconditions="Admin user account is provisioned in the database.",
+                                test_environment="QA",
+                                test_data={"username": "admin@trainmate.com", "role": "admin", "redirect_url": "/dashboard"},
+                                execution_steps=[
+                                    ExecutionStep(step_number=1, action="Navigate to the application login portal.", expected="Login page renders with username and password fields."),
+                                    ExecutionStep(step_number=2, action="Enter valid Admin credentials: username='admin@trainmate.com'.", expected="Input fields accept credentials securely."),
+                                    ExecutionStep(step_number=3, action="Click the 'Sign In' button.", expected="Authentication succeeds; token is issued."),
+                                    ExecutionStep(step_number=4, action="Verify redirected URL and dashboard view.", expected="User is redirected to Admin Dashboard with cohort management controls."),
+                                ],
+                                expected_results="Admin user is authenticated and granted full administrative portal permissions.",
+                                automation_suitability="Yes",
+                                tags=["auth", "admin", "smoke"],
+                            )
+                        )
+                    elif "trainer" in s_lower:
+                        all_test_cases.append(
+                            GeneratedTestCase(
+                                test_case_key=f"TC-{tc_idx:03d}",
+                                scenario_key=s.scenario_key,
+                                requirement_key=s.requirement_key,
+                                title="Verify Trainer Role Login & Schedule Access",
+                                objective="Confirm successful authentication for Trainer role with assigned cohort schedule access.",
+                                test_type="Functional",
+                                priority="High",
+                                preconditions="Trainer user account is active in the database.",
+                                test_environment="QA",
+                                test_data={"username": "trainer.lead@trainmate.com", "role": "trainer", "redirect_url": "/trainer/schedule"},
+                                execution_steps=[
+                                    ExecutionStep(step_number=1, action="Navigate to the application login portal.", expected="Login page renders successfully."),
+                                    ExecutionStep(step_number=2, action="Enter valid Trainer credentials: username='trainer.lead@trainmate.com'.", expected="Credentials entered without errors."),
+                                    ExecutionStep(step_number=3, action="Click the 'Sign In' button.", expected="Authentication succeeds."),
+                                    ExecutionStep(step_number=4, action="Verify redirected portal view.", expected="User is redirected to Trainer Schedule view showing assigned training cohorts."),
+                                ],
+                                expected_results="Trainer user is authenticated and receives trainer role navigation.",
+                                automation_suitability="Yes",
+                                tags=["auth", "trainer", "smoke"],
+                            )
+                        )
+                    elif "trainee" in s_lower or "student" in s_lower or "user" in s_lower:
+                        all_test_cases.append(
+                            GeneratedTestCase(
+                                test_case_key=f"TC-{tc_idx:03d}",
+                                scenario_key=s.scenario_key,
+                                requirement_key=s.requirement_key,
+                                title="Verify Trainee Role Login & Learning Portal Access",
+                                objective="Confirm successful authentication for Trainee role with course module access.",
+                                test_type="Functional",
+                                priority="High",
+                                preconditions="Trainee user account is enrolled in an active cohort.",
+                                test_environment="QA",
+                                test_data={"username": "trainee.cohort01@trainmate.com", "role": "trainee", "redirect_url": "/modules"},
+                                execution_steps=[
+                                    ExecutionStep(step_number=1, action="Navigate to the application login portal.", expected="Login page renders successfully."),
+                                    ExecutionStep(step_number=2, action="Enter valid Trainee credentials: username='trainee.cohort01@trainmate.com'.", expected="Credentials accepted."),
+                                    ExecutionStep(step_number=3, action="Click the 'Sign In' button.", expected="Authentication succeeds."),
+                                    ExecutionStep(step_number=4, action="Verify redirected portal view.", expected="User is redirected to Trainee Learning Portal showing enrolled cohorts."),
+                                ],
+                                expected_results="Trainee user is authenticated and restricted to trainee module view.",
+                                automation_suitability="Yes",
+                                tags=["auth", "trainee", "smoke"],
+                            )
+                        )
+                    elif s.test_type == "Positive":
                         all_test_cases.append(
                             GeneratedTestCase(
                                 test_case_key=f"TC-{tc_idx:03d}",

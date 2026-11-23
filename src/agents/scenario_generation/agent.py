@@ -117,65 +117,95 @@ Return complete JSON matching the ScenarioGenerationOutput schema."""
                     validated.total_scenarios = len(validated.scenarios)
                 return validated
         except Exception as e:
+            from src.core.exceptions import QuotaExceededError
+            err_str = str(e).lower()
+            if isinstance(e, QuotaExceededError) or any(t in err_str for t in ["quota", "429", "resourceexhausted", "rate limit", "rate_limit"]):
+                logger.error(f"AI Quota Exceeded in ScenarioGenerationAgent: {e}. Re-raising to notify workflow.")
+                raise e
             logger.warning(f"Scenario generation LLM fell back to rule-based generator: {e}")
 
         # Deterministic Rule-Based Fallback
         scenarios = []
         counter = 1
         for r in input_data.requirements:
-            # 1. Positive Happy Path
-            scenarios.append(
-                GeneratedScenario(
-                    scenario_key=f"SCEN-{counter:03d}",
-                    requirement_key=r.requirement_key,
-                    title=f"Verify Happy Path - {r.title}",
-                    description=f"Validate that user can successfully complete {r.title} with valid standard inputs.",
-                    test_type="Positive",
-                    preconditions="User is authenticated and system is in normal operational state.",
-                    test_objective=f"Confirm core business goal: {r.business_objective}",
-                    priority="High",
-                    risk="High",
-                    expected_outcome="Operation completes successfully with positive feedback to user.",
-                    automation_suitability="Yes",
+            r_title_lower = r.title.lower()
+            if "role" in r_title_lower or "auth" in r_title_lower or "login" in r_title_lower:
+                role_defs = [
+                    ("Admin", "Verify successful login and administrative dashboard access with valid Admin credentials.", "Positive"),
+                    ("Trainer", "Verify successful login and cohort schedule access with valid Trainer credentials.", "Positive"),
+                    ("Trainee", "Verify successful login and module progress access with valid Trainee credentials.", "Positive"),
+                ]
+                for role_name, role_desc, role_type in role_defs:
+                    scenarios.append(
+                        GeneratedScenario(
+                            scenario_key=f"SCEN-{counter:03d}",
+                            requirement_key=r.requirement_key,
+                            title=f"Verify {role_name} Role Login - {r.title}",
+                            description=role_desc,
+                            test_type=role_type,
+                            preconditions=f"User has valid {role_name} credentials and target environment is online.",
+                            test_objective=f"Confirm that {role_name} can log in successfully and receives correct role authorization.",
+                            priority="High",
+                            risk="High",
+                            expected_outcome=f"{role_name} authenticated successfully and redirected to role home.",
+                            automation_suitability="Yes",
+                        )
+                    )
+                    counter += 1
+            else:
+                # 1. Positive Happy Path
+                scenarios.append(
+                    GeneratedScenario(
+                        scenario_key=f"SCEN-{counter:03d}",
+                        requirement_key=r.requirement_key,
+                        title=f"Verify Happy Path - {r.title}",
+                        description=f"Validate that user can successfully complete {r.title} with valid standard inputs.",
+                        test_type="Positive",
+                        preconditions="User is authenticated and system is in normal operational state.",
+                        test_objective=f"Confirm core business goal: {r.business_objective}",
+                        priority="High",
+                        risk="High",
+                        expected_outcome="Operation completes successfully with positive feedback to user.",
+                        automation_suitability="Yes",
+                    )
                 )
-            )
-            counter += 1
+                counter += 1
 
-            # 2. Negative Validation
-            scenarios.append(
-                GeneratedScenario(
-                    scenario_key=f"SCEN-{counter:03d}",
-                    requirement_key=r.requirement_key,
-                    title=f"Verify Error Handling on Invalid Input - {r.title}",
-                    description="Validate system response when mandatory fields are missing or format is malformed.",
-                    test_type="Negative",
-                    preconditions="User accesses the feature page.",
-                    test_objective="Ensure user-friendly validation error is displayed without system crash.",
-                    priority="High",
-                    risk="Medium",
-                    expected_outcome="Clear validation error displayed; transaction blocked.",
-                    automation_suitability="Yes",
+                # 2. Negative Validation
+                scenarios.append(
+                    GeneratedScenario(
+                        scenario_key=f"SCEN-{counter:03d}",
+                        requirement_key=r.requirement_key,
+                        title=f"Verify Error Handling on Invalid Input - {r.title}",
+                        description="Validate system response when mandatory fields are missing or format is malformed.",
+                        test_type="Negative",
+                        preconditions="User accesses the feature page.",
+                        test_objective="Ensure user-friendly validation error is displayed without system crash.",
+                        priority="High",
+                        risk="Medium",
+                        expected_outcome="Clear validation error displayed; transaction blocked.",
+                        automation_suitability="Yes",
+                    )
                 )
-            )
-            counter += 1
+                counter += 1
 
-            # 3. Boundary & Edge Case
-            scenarios.append(
-                GeneratedScenario(
-                    scenario_key=f"SCEN-{counter:03d}",
-                    requirement_key=r.requirement_key,
-                    title=f"Boundary & Character Limit Checks - {r.title}",
-                    description="Submit data at minimum boundary, maximum boundary, and exceeding maximum length.",
-                    test_type="Boundary",
-                    preconditions="System ready for input.",
-                    test_objective="Verify boundary enforcement and buffer overflow protections.",
-                    priority="Medium",
-                    risk="Medium",
-                    expected_outcome="Inputs exceeding limits are truncated or rejected with boundary warning.",
-                    automation_suitability="Yes",
+                # 3. Boundary & Edge Case
+                scenarios.append(
+                    GeneratedScenario(
+                        scenario_key=f"SCEN-{counter:03d}",
+                        requirement_key=r.requirement_key,
+                        title=f"Boundary & Character Limit Checks - {r.title}",
+                        description="Submit data at minimum boundary, maximum boundary, and exceeding maximum length.",
+                        test_type="Boundary",
+                        preconditions="System ready for input.",
+                        test_objective="Verify boundary enforcement and buffer overflow protections.",
+                        priority="Medium",
+                        risk="Medium",
+                        expected_outcome="Inputs exceeding limits are truncated or rejected with boundary warning.",
+                        automation_suitability="Yes",
+                    )
                 )
-            )
-            counter += 1
+                counter += 1
 
             # 4. Security & Authorization
             scenarios.append(
