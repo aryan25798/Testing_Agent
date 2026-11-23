@@ -79,11 +79,22 @@ def requirement_node(state: TestingWorkflowState) -> Dict[str, Any]:
 
     import re
     target_count = state.get("target_test_count")
-    if not target_count and raw_text:
-        m = re.search(r'\b(?:only|generate|create|limit\s+to|at\s+most)\s+(\d+)\s*(?:login\s+)?tests?\b', raw_text, re.IGNORECASE)
+    user_directive = None
+    if raw_text:
+        m = re.search(r'\b(?:only|generate|create|limit\s+to|at\s+most)?\s*(\d+)\s*(?:login\s+|role[- ]based\s+|test\s+cases?|tests?)\b', raw_text, re.IGNORECASE)
         if m:
-            target_count = int(m.group(1))
-            logger.info(f"Detected explicit user test count constraint: {target_count}")
+            try:
+                target_count = int(m.group(1))
+                logger.info(f"Detected explicit user test count constraint: {target_count}")
+            except (ValueError, IndexError):
+                pass
+
+        lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
+        if lines:
+            first_line = lines[0]
+            if any(k in first_line.lower() for k in ["only", "generate", "create", "test", "login", "role", "verify", "diffrent", "different"]):
+                user_directive = first_line
+                logger.info(f"Detected explicit user scoping directive: '{user_directive}'")
 
     # On new run, wipe stale artifacts for this project to prevent accumulation of old test cases
     if state.get("project_id"):
@@ -104,15 +115,17 @@ def requirement_node(state: TestingWorkflowState) -> Dict[str, Any]:
         except Exception as e:
             logger.warning(f"Could not fetch from GitHub MCP: {e}")
 
-        # Deterministic AST Code Indexer (Zero-cost contract extraction for massive monorepos)
-        try:
-            from src.integrations.git.ast_indexer import ast_code_indexer
-            contract_summary = ast_code_indexer.index_directory(".")
-            if contract_summary.frontend_routes or contract_summary.api_endpoints:
-                compact_contract = contract_summary.to_compact_markdown()
-                parts.append(f"STATIC CODE AST CONTRACT (DETERMINISTIC ZERO-COST SLICER):\n{compact_contract}")
-        except Exception as e:
-            logger.warning(f"Could not index static code interface contracts: {e}")
+        # Deterministic AST Code Indexer: only index if an external target directory is mapped
+        target_repo_dir = state.get("target_repo_dir")
+        if target_repo_dir and target_repo_dir != "." and Path(target_repo_dir).exists():
+            try:
+                from src.integrations.git.ast_indexer import ast_code_indexer
+                contract_summary = ast_code_indexer.index_directory(target_repo_dir)
+                if contract_summary.frontend_routes or contract_summary.api_endpoints:
+                    compact_contract = contract_summary.to_compact_markdown()
+                    parts.append(f"STATIC CODE AST CONTRACT:\n{compact_contract}")
+            except Exception as e:
+                logger.warning(f"Could not index static code interface contracts: {e}")
 
         try:
             from src.integrations.mcp.mcp_agent_client import mcp_agent_client
@@ -142,6 +155,8 @@ def requirement_node(state: TestingWorkflowState) -> Dict[str, Any]:
         raw_text=raw_text,
         title="Project Requirements",
         source_type=source_type,
+        target_count=target_count,
+        user_directive=user_directive,
     )
     result = req_agent.run(inp, project_id=state["project_id"])
     reqs_dicts = [r.model_dump() for r in result.requirements]

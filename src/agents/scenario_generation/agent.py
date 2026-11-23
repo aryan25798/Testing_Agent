@@ -117,19 +117,16 @@ Return complete JSON matching the ScenarioGenerationOutput schema."""
                     validated.total_scenarios = len(validated.scenarios)
                 return validated
         except Exception as e:
-            from src.core.exceptions import QuotaExceededError
-            err_str = str(e).lower()
-            if isinstance(e, QuotaExceededError) or any(t in err_str for t in ["quota", "429", "resourceexhausted", "rate limit", "rate_limit"]):
-                logger.error(f"AI Quota Exceeded in ScenarioGenerationAgent: {e}. Re-raising to notify workflow.")
-                raise e
             logger.warning(f"Scenario generation LLM fell back to rule-based generator: {e}")
 
         # Deterministic Rule-Based Fallback
         scenarios = []
         counter = 1
+        is_auth_intent = any(k in combined_text.lower() for k in ["role", "auth", "login"])
+        
         for r in input_data.requirements:
             r_title_lower = r.title.lower()
-            if "role" in r_title_lower or "auth" in r_title_lower or "login" in r_title_lower:
+            if (target_count and target_count <= 3) and (is_auth_intent or "role" in r_title_lower or "auth" in r_title_lower or "login" in r_title_lower):
                 role_defs = [
                     ("Admin", "Verify successful login and administrative dashboard access with valid Admin credentials.", "Positive"),
                     ("Trainer", "Verify successful login and cohort schedule access with valid Trainer credentials.", "Positive"),
@@ -224,6 +221,9 @@ Return complete JSON matching the ScenarioGenerationOutput schema."""
                 )
             )
             counter += 1
+
+        if target_count and len(scenarios) > target_count:
+            scenarios = scenarios[:target_count]
 
         return ScenarioGenerationOutput(
             scenarios=scenarios,

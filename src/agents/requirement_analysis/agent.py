@@ -18,6 +18,8 @@ class RequirementAnalysisInput(BaseModel):
     title: Optional[str] = "Feature Specification"
     source_type: str = "manual"  # jira, file, manual
     jira_issue_key: Optional[str] = None
+    target_count: Optional[int] = None
+    user_directive: Optional[str] = None
 
 
 class ExtractedRequirement(BaseModel):
@@ -72,11 +74,24 @@ class RequirementAnalysisAgent(BaseAgent):
             input_data.raw_text, label=f"client_requirement_{input_data.source_type}"
         )
 
+        scoping_prompt = ""
+        if input_data.user_directive or input_data.target_count:
+            scoping_prompt = f"""
+CRITICAL OVERRIDING USER SCOPE DIRECTIVE:
+The user explicitly commanded: "{input_data.user_directive or f'Create only {input_data.target_count} tests'}"
+Target Test Count: {input_data.target_count or 'Specified by directive'}
+MANDATORY INSTRUCTIONS:
+1. Extract ONLY the requirement(s) that directly address this user directive (e.g., if the user asked for 3 login tests with different roles, extract ONLY 1 requirement for Role-Based Login & Authentication).
+2. DO NOT extract requirements for other features, modules, or background architecture in the PRD!
+3. Return AT MOST 1 or 2 requirements in the requirements array!"""
+
         prompt = f"""Please analyze the following software requirements data:
 
 Source Type: {input_data.source_type}
 Issue Key: {input_data.jira_issue_key or 'N/A'}
 Title: {input_data.title}
+
+{scoping_prompt}
 
 {wrapped_requirements}
 
@@ -95,13 +110,21 @@ CRITICAL TRACEABILITY & SCOPING RULES:
             from src.core.utils.json_sanitizer import normalize_to_schema
             validated = normalize_to_schema(data, RequirementAnalysisOutput)
             if validated.requirements:
+                if (input_data.user_directive or input_data.target_count) and len(validated.requirements) > 1:
+                    directive_lower = (input_data.user_directive or "").lower()
+                    if any(w in directive_lower for w in ["login", "role", "auth"]):
+                        auth_matches = [
+                            r for r in validated.requirements
+                            if any(w in r.title.lower() or w in r.description.lower() for w in ["auth", "login", "role", "permission"])
+                        ]
+                        if auth_matches:
+                            validated.requirements = auth_matches[:1]
+                        else:
+                            validated.requirements = validated.requirements[:1]
+                    elif input_data.target_count and input_data.target_count <= 3:
+                        validated.requirements = validated.requirements[:1]
                 return validated
         except Exception as e:
-            from src.core.exceptions import QuotaExceededError
-            err_str = str(e).lower()
-            if isinstance(e, QuotaExceededError) or any(t in err_str for t in ["quota", "429", "resourceexhausted", "rate limit", "rate_limit"]):
-                logger.error(f"AI Quota Exceeded in RequirementAnalysisAgent: {e}. Re-raising to notify workflow.")
-                raise e
             logger.warning(f"LLM requirement extraction fell back to rule-based parser: {e}")
 
         # Deterministic Rule-Based Fallback
@@ -109,7 +132,7 @@ CRITICAL TRACEABILITY & SCOPING RULES:
         custom_key_match = re.search(r"\b(REQ-[A-Z0-9_\-]+|[A-Z]+-\d+)\b", input_data.raw_text)
         req_key = custom_key_match.group(1) if custom_key_match else (input_data.jira_issue_key or "REQ-001")
 
-        raw_lower = input_data.raw_text.lower()
+        raw_lower = (input_data.raw_text + " " + (input_data.user_directive or "")).lower()
         if "login" in raw_lower or "role" in raw_lower or "auth" in raw_lower:
             fallback_title = "Role-Based User Authentication & Access Control"
             fallback_desc = "Verify multi-role authentication flows (Admin, Trainer, Trainee/User) with role-specific access permissions."

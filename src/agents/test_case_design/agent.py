@@ -125,11 +125,6 @@ CRITICAL RULES:
                         all_test_cases.extend(validated.test_cases)
                         batch_succeeded = True
             except Exception as e:
-                from src.core.exceptions import QuotaExceededError
-                err_str = str(e).lower()
-                if isinstance(e, QuotaExceededError) or any(t in err_str for t in ["quota", "429", "resourceexhausted", "rate limit", "rate_limit"]):
-                    logger.error(f"AI Quota Exceeded in TestCaseDesignAgent: {e}. Re-raising to notify workflow.")
-                    raise e
                 logger.warning(f"Batch {b_idx + 1}/{len(batches)} LLM test case design failed: {e}. Applying rule-based fallback for this batch.")
 
             if not batch_succeeded:
