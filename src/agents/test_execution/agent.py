@@ -408,7 +408,7 @@ for name, obj in list(locals().items()):
                     b_type = "{browser_lower}"
                     launch_kwargs = {{"headless": {headless_val}}}
                     if {headed}:
-                        launch_kwargs["slow_mo"] = 1200
+                        launch_kwargs["slow_mo"] = 150
                         launch_kwargs["args"] = ["--start-maximized"]
                         import os
                         chrome_exe = r"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"

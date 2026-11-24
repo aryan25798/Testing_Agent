@@ -79,7 +79,10 @@ class MCPAgentClient:
         """
         Retrieves Jira user stories and acceptance criteria via Atlassian MCP tool.
         """
-        jira_project = cls._get_project_jira_key(project_id) or "TEST"
+        jira_project = cls._get_project_jira_key(project_id)
+        if not jira_project:
+            logger.info(f"Project '{project_id}' has no connected Jira project mapped. Skipping Jira issue query.")
+            return []
 
         try:
             # Check available Atlassian tools dynamically

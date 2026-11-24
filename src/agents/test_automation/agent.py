@@ -170,15 +170,27 @@ CRITICAL EXECUTION REQUIREMENTS:
 1. For each test case, generate a Python test function:
    - For Playwright: 'def test_{{test_case_key_clean}}(page: Page):' importing Page, expect, and BasePage.
    - For Selenium: 'def test_{{test_case_key_clean}}(driver):' importing By, WebDriverWait, EC, and BasePage.
-2. Self-contained live execution: The script must directly perform live actions against '{base_url}' using the page fixture (e.g. page.goto('{base_url}'), page.wait_for_load_state('domcontentloaded')).
-3. NO EXTERNAL DEPENDENCIES: Never import from other test files (e.g. do NOT do 'from test_tc_002 import ...'). Every file is executed independently.
-4. NO UNSET ENV VARS: Never gate test execution behind custom environment variables (e.g. do NOT do 'os.getenv(...)') or missing hook modules. Embed required locators and selectors directly.
-5. Translate the test case steps into realistic, resilient browser actions (navigate, locate visible elements, type text, press Enter, verify page title, URL and visible elements).
-6. DO NOT USE BRITTLE NETWORK INTERCEPTIONS: Do not use `page.expect_request` or `page.expect_response` for dynamic single-page applications (like YouTube). They execute background RPCs asynchronously and network expectations will timeout after 30 seconds. Rely strictly on visible DOM assertions (e.g. `expect(locator).to_be_visible()`, `expect(page).to_have_url(...)`, `expect(page).to_have_title(...)`).
-7. Resilient action timeouts: Use sensible timeouts (5,000ms - 10,000ms) on element waits rather than blocking 30-second deadlines.
-8. Safe read-only execution: Do not attempt real financial payments, ticket bookings, or destructive modifications.
-9. Add robust assertions reflecting the 'Expected Result'.
-10. Return JSON matching AutomationBatchOutput schema."""
+2. Self-contained live execution: The script must directly perform live actions against '{base_url}' using the page fixture.
+3. NAVIGATION TIMEOUT: For page.goto('{base_url}'), use standard 30,000ms timeout or omit the timeout argument so Playwright uses its default 30s. NEVER set a 10,000ms (10s) timeout on page.goto(), as live websites with SSL and redirects will fail.
+4. NO EXTERNAL DEPENDENCIES & NO MOCKING: Never import from other test files. Never use page.route or inject fake HTML fixtures. Tests must run live against the real target application.
+5. NO UNSET ENV VARS: Never gate test execution behind custom environment variables (e.g. do NOT do 'os.getenv(...)') or missing hook modules. Embed required locators and selectors directly.
+6. MODERN MULTI-SELECTOR BRAND LOGOS: When checking brand logos on homepages (Google, YouTube, etc.), modern websites use SVGs and ARIA labels rather than legacy <img> tags. Always use resilient multi-selector locators: e.g.
+   logo = page.locator('svg[aria-label*="Google" i], img[alt*="Google" i], a[aria-label*="Google" i], [role="banner"]').first
+   expect(logo).to_be_visible(timeout=10000)
+7. RESILIENT SEARCH SUBMISSIONS & ASSERTIONS:
+   - When submitting a form or search, press Enter or click the button WITHOUT 'no_wait_after=True'.
+   - Wait for the results container or URL to update before asserting results:
+     page.keyboard.press("Enter")
+     expect(page.locator("#search, [role='main'], main, #contents").first).to_be_visible(timeout=15000)
+   - When asserting page titles after search, use case-insensitive partial match regex (e.g. expect(page).to_have_title(re.compile(re.escape(query), re.I), timeout=10000)) rather than brittle exact localized strings that vary by country or language.
+8. COOKIE / CONSENT BANNER HANDLING: Many public websites show cookie consent or GDPR banners. If present, dismiss them:
+   consent = page.locator('button:has-text("Accept all"), button:has-text("I agree"), button:has-text("Reject all"), [aria-label*="Accept all" i]').first
+   if consent.is_visible(timeout=1500):
+       consent.click(timeout=3000)
+9. DO NOT USE BRITTLE NETWORK INTERCEPTIONS: Do not use `page.expect_request` or `page.expect_response` for dynamic single-page applications. Rely strictly on visible DOM assertions.
+10. Resilient element timeouts: Use sensible timeouts (5,000ms - 10,000ms) on element waits.
+11. Safe read-only execution: Do not attempt real financial payments, ticket bookings, or destructive modifications.
+12. Return JSON matching AutomationBatchOutput schema."""
 
             try:
                 batch_res = self.execute_with_llm(

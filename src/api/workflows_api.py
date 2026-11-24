@@ -213,7 +213,7 @@ def cancel_project_workflow(project_id: str):
 
 
 @router.get("/project/{project_id}/mcp-activity")
-def get_project_mcp_activity(project_id: str, limit: int = 15):
+def get_project_mcp_activity(project_id: str, limit: int = 25):
     """Retrieves real-time MCP tool invocation activity feed for a project."""
     with SessionLocal() as db:
         logs = (
@@ -226,12 +226,16 @@ def get_project_mcp_activity(project_id: str, limit: int = 15):
         return [
             {
                 "id": log.id,
+                "server_id": log.server_id,
                 "tool_name": log.tool_name,
                 "agent_id": log.agent_id,
                 "operation_type": log.operation_type,
+                "arguments": log.arguments_summary or {},
                 "status": log.status,
                 "duration": log.duration_seconds,
-                "invoked_at": log.timestamp.isoformat() if log.timestamp else None,
+                "error_message": log.error_message,
+                "invoked_at": log.timestamp.strftime("%H:%M:%S") if log.timestamp else None,
+                "timestamp_iso": log.timestamp.isoformat() if log.timestamp else None,
             }
             for log in logs
         ]

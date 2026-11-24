@@ -405,30 +405,61 @@ import { IconComponent } from '../../shared/components/icon.component';
           <!-- Tab 2: MCP Tool Invocations Feed -->
           <div *ngIf="activeTab === 'mcp'" class="p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs font-mono space-y-3">
             <div class="flex items-center justify-between border-b border-slate-800 pb-2">
-              <span class="text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                MCP Server Tool Execution Feed (Zero-Leaked Credentials)
-              </span>
-              <button (click)="loadMcpActivity()" class="text-[10px] text-blue-400 hover:text-blue-300 cursor-pointer">
-                Refresh Feed
+              <div class="flex items-center gap-2">
+                <span class="text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                  MCP Server Tool Execution Feed (Zero-Leaked Credentials)
+                </span>
+                <span *ngIf="mcpActivities.length" class="px-1.5 py-0.5 rounded text-[10px] bg-blue-500/20 text-blue-300 font-bold">
+                  {{ mcpActivities.length }} Recorded
+                </span>
+              </div>
+              <button
+                (click)="loadMcpActivity()"
+                [disabled]="isLoadingMcp"
+                class="flex items-center gap-1.5 text-[10px] text-blue-400 hover:text-blue-300 cursor-pointer disabled:opacity-50"
+              >
+                <app-icon name="refresh-cw" [class]="'w-3 h-3 ' + (isLoadingMcp ? 'animate-spin' : '')"></app-icon>
+                <span>{{ isLoadingMcp ? 'Refreshing...' : 'Refresh Feed' }}</span>
               </button>
             </div>
-            <div *ngIf="!mcpActivities.length" class="text-slate-500 py-3 text-center">
-              No MCP tool calls recorded for this project yet.
+
+            <div *ngIf="!mcpActivities.length" class="text-slate-500 py-6 text-center space-y-2">
+              <app-icon name="blocks" class="w-8 h-8 mx-auto text-slate-600 block"></app-icon>
+              <p class="font-sans text-xs text-slate-400 font-medium">No MCP Tool Invocations for This Project</p>
+              <p class="font-sans text-[11px] text-slate-500 max-w-md mx-auto">
+                MCP tools (such as Atlassian Jira user story retrieval or GitHub repository file inspection) execute when a repository or Jira project is connected in the Integration Center.
+              </p>
             </div>
-            <div *ngIf="mcpActivities.length" class="max-h-56 overflow-y-auto divide-y divide-slate-800/60">
-              <div *ngFor="let act of mcpActivities" class="py-2 flex items-center justify-between gap-3 text-slate-300">
-                <div class="flex items-center gap-2 truncate">
-                  <span class="text-blue-400 font-bold font-mono">{{ act.tool_name }}</span>
-                  <span class="text-slate-500 text-[11px]">by {{ act.agent_id }}</span>
+
+            <div *ngIf="mcpActivities.length" class="max-h-64 overflow-y-auto divide-y divide-slate-800/60">
+              <div *ngFor="let act of mcpActivities" class="py-2.5 flex flex-col gap-1.5 text-slate-300">
+                <div class="flex items-center justify-between gap-3">
+                  <div class="flex items-center gap-2 truncate">
+                    <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase"
+                      [ngClass]="act.server_id?.includes('github') || act.tool_name.includes('file') || act.tool_name.includes('repo') ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'">
+                      {{ act.server_id?.includes('github') || act.tool_name.includes('file') || act.tool_name.includes('repo') ? 'GitHub MCP' : 'Atlassian MCP' }}
+                    </span>
+                    <span class="text-blue-400 font-bold font-mono text-xs">{{ act.tool_name }}</span>
+                    <span class="text-slate-500 text-[11px]">by {{ act.agent_id }}</span>
+                  </div>
+                  <div class="flex items-center gap-2 shrink-0 font-mono text-[11px]">
+                    <span *ngIf="act.invoked_at" class="text-slate-500">{{ act.invoked_at }}</span>
+                    <span class="text-slate-400">{{ act.duration }}s</span>
+                    <span
+                      class="px-2 py-0.5 rounded text-[10px] font-bold uppercase"
+                      [ngClass]="act.status === 'success' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'"
+                    >
+                      {{ act.status }}
+                    </span>
+                  </div>
                 </div>
-                <div class="flex items-center gap-2 shrink-0">
-                  <span class="text-[10px] text-slate-400">{{ act.duration }}s</span>
-                  <span
-                    class="px-2 py-0.5 rounded text-[10px] font-bold uppercase"
-                    [ngClass]="act.status === 'success' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'"
-                  >
-                    {{ act.status }}
-                  </span>
+                <!-- Render arguments if present -->
+                <div *ngIf="act.arguments && (act.arguments | json) !== '{}'" class="text-[11px] text-slate-400 bg-slate-900/60 px-2.5 py-1 rounded border border-slate-800/80 font-mono truncate">
+                  <span class="text-slate-500 select-none">Args: </span>
+                  <span class="text-emerald-400/90">{{ act.arguments | json }}</span>
+                </div>
+                <div *ngIf="act.error_message" class="text-[11px] text-rose-400 bg-rose-950/40 px-2.5 py-1 rounded border border-rose-800/50 font-mono">
+                  Error: {{ act.error_message }}
                 </div>
               </div>
             </div>
@@ -534,7 +565,19 @@ export class WorkflowsComponent implements OnInit, OnDestroy {
 
   workflowResult: any = null;
   streamLogs: Array<{ agent: string; time: string; text: string }> = [];
-  mcpActivities: Array<{ id: string; tool_name: string; agent_id: string; duration: number; status: string; invoked_at: string }> = [];
+  mcpActivities: Array<{
+    id: string;
+    server_id?: string;
+    tool_name: string;
+    agent_id: string;
+    operation_type?: string;
+    arguments?: Record<string, any>;
+    duration: number;
+    status: string;
+    error_message?: string;
+    invoked_at?: string;
+  }> = [];
+  isLoadingMcp = false;
   private activeEventSource: EventSource | null = null;
 
   pipelineSteps = [
@@ -734,11 +777,21 @@ export class WorkflowsComponent implements OnInit, OnDestroy {
 
   loadMcpActivity() {
     if (!this.selectedProjectId) return;
+    this.isLoadingMcp = true;
     this.api.getProjectMcpActivity(this.selectedProjectId).subscribe({
       next: (acts) => {
-        this.mcpActivities = acts || [];
+        this.ngZone.run(() => {
+          this.mcpActivities = acts || [];
+          this.isLoadingMcp = false;
+          this.cdr.detectChanges();
+        });
       },
-      error: () => {},
+      error: () => {
+        this.ngZone.run(() => {
+          this.isLoadingMcp = false;
+          this.cdr.detectChanges();
+        });
+      },
     });
   }
 
