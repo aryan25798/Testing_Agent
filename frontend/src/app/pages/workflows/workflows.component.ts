@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, ChangeDetectorRef, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -493,6 +493,8 @@ import { IconComponent } from '../../shared/components/icon.component';
 export class WorkflowsComponent implements OnInit, OnDestroy {
   private api = inject(ApiService);
   private route = inject(ActivatedRoute);
+  private cdr = inject(ChangeDetectorRef);
+  private ngZone = inject(NgZone);
 
   projects: Project[] = [];
   selectedProjectId = '';
@@ -526,7 +528,9 @@ export class WorkflowsComponent implements OnInit, OnDestroy {
   activeProvider = 'OpenAI';
   activeModel = 'gpt-6.2-sol';
   elapsedSeconds = 0;
+  private startTime = 0;
   private timerInterval: any = null;
+  private watchdogInterval: any = null;
 
   workflowResult: any = null;
   streamLogs: Array<{ agent: string; time: string; text: string }> = [];
@@ -643,10 +647,15 @@ export class WorkflowsComponent implements OnInit, OnDestroy {
 
   private startTimer() {
     this.elapsedSeconds = 0;
+    this.startTime = Date.now();
     this.stopTimer();
     this.timerInterval = setInterval(() => {
-      this.elapsedSeconds++;
+      this.ngZone.run(() => {
+        this.elapsedSeconds = Math.floor((Date.now() - this.startTime) / 1000);
+        this.cdr.markForCheck();
+      });
     }, 1000);
+    this.startWatchdog();
   }
 
   private stopTimer() {
@@ -654,6 +663,48 @@ export class WorkflowsComponent implements OnInit, OnDestroy {
       clearInterval(this.timerInterval);
       this.timerInterval = null;
     }
+    if (this.watchdogInterval) {
+      clearInterval(this.watchdogInterval);
+      this.watchdogInterval = null;
+    }
+  }
+
+  private startWatchdog() {
+    if (this.watchdogInterval) {
+      clearInterval(this.watchdogInterval);
+      this.watchdogInterval = null;
+    }
+    // High-res watchdog to verify if backend finished even if SSE stalled or background tab dropped events
+    this.watchdogInterval = setInterval(() => {
+      if (!this.isRunning || this.isCancelled || !this.selectedProjectId) return;
+      this.api.getProjectReport(this.selectedProjectId).subscribe({
+        next: (rep: any) => {
+          if (rep && (rep.total_test_cases > 0 || rep.total_executions > 0 || rep.markdown_report)) {
+            this.ngZone.run(() => {
+              this.currentStepIndex = 6;
+              this.isRunning = false;
+              this.stopTimer();
+              this.activeAgentName = 'Complete';
+              this.activeOperation = 'Workflow completed successfully.';
+              this.workflowResult = {
+                total_requirements: rep.total_requirements ?? rep.requirements_count ?? 0,
+                total_scenarios: rep.total_scenarios ?? rep.scenarios_count ?? 0,
+                total_test_cases: rep.total_test_cases ?? rep.test_cases_count ?? 0,
+                total_scripts: rep.automated_test_cases ?? rep.total_scripts ?? rep.automation_scripts_count ?? 0,
+                report_summary: rep.executive_summary || rep.markdown_report || 'Autonomous testing completed.',
+              };
+              if (this.activeEventSource) {
+                this.activeEventSource.close();
+                this.activeEventSource = null;
+              }
+              this.loadMcpActivity();
+              this.cdr.detectChanges();
+            });
+          }
+        },
+        error: () => {},
+      });
+    }, 2500);
   }
 
   get formattedTime(): string {
@@ -768,125 +819,139 @@ export class WorkflowsComponent implements OnInit, OnDestroy {
     const eventSource = this.activeEventSource;
 
     eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        const timeStr = new Date().toLocaleTimeString();
+      this.ngZone.run(() => {
+        try {
+          const data = JSON.parse(event.data);
+          const timeStr = new Date().toLocaleTimeString();
 
-        if (data.provider) this.activeProvider = data.provider;
-        if (data.model) this.activeModel = data.model;
-
-        if (data.event === 'workflow_started') {
-          this.streamLogs.push({ agent: 'LangGraph', time: timeStr, text: data.message });
-          this.loadMcpActivity();
-        } else if (data.event === 'agent_started') {
-          this.currentStepIndex = Math.max(0, (data.step || 1) - 1);
-          this.activeAgentName = data.agent;
-          this.activeOperation = data.details || `Executing ${data.agent}...`;
           if (data.provider) this.activeProvider = data.provider;
           if (data.model) this.activeModel = data.model;
-          this.streamLogs.push({
-            agent: data.agent,
-            time: timeStr,
-            text: `[Step ${data.step}/${data.total_steps}] ${data.details}`,
-          });
-          this.loadMcpActivity();
-        } else if (data.event === 'agent_completed') {
-          this.currentStepIndex = data.step;
-          if (this.currentStepIndex < this.pipelineSteps.length) {
-            this.activeAgentName = this.pipelineSteps[this.currentStepIndex].name;
-            this.activeOperation = `Executing ${this.pipelineSteps[this.currentStepIndex].name}...`;
-          } else {
+
+          if (data.event === 'workflow_started') {
+            this.streamLogs.push({ agent: 'LangGraph', time: timeStr, text: data.message });
+            this.loadMcpActivity();
+          } else if (data.event === 'agent_started') {
+            this.currentStepIndex = Math.max(0, (data.step || 1) - 1);
             this.activeAgentName = data.agent;
-            this.activeOperation = data.details;
-          }
-          if (data.provider) this.activeProvider = data.provider;
-          if (data.model) this.activeModel = data.model;
-          
-          let countStr = '';
-          if (data.counts) {
-            const parts = Object.entries(data.counts).map(([k, v]) => `${v} ${k}`);
-            if (parts.length) countStr = ` (${parts.join(', ')})`;
-          }
-
-          this.streamLogs.push({
-            agent: data.agent,
-            time: timeStr,
-            text: `Step ${data.step}/${data.total_steps}: ${data.details}${countStr}`,
-          });
-
-          if (data.samples && Array.isArray(data.samples)) {
-            data.samples.slice(0, 3).forEach((sample: string) => {
-              this.streamLogs.push({
-                agent: data.agent,
-                time: timeStr,
-                text: `  ↳ Artifact: ${sample}`,
-              });
+            this.activeOperation = data.details || `Executing ${data.agent}...`;
+            if (data.provider) this.activeProvider = data.provider;
+            if (data.model) this.activeModel = data.model;
+            this.streamLogs.push({
+              agent: data.agent,
+              time: timeStr,
+              text: `[Step ${data.step}/${data.total_steps}] ${data.details}`,
             });
-          }
-          this.loadMcpActivity();
-        } else if (data.event === 'workflow_cancelled') {
-          this.isRunning = false;
-          this.isCancelled = true;
-          this.stopTimer();
-          this.streamLogs.push({ agent: 'System', time: timeStr, text: data.message });
-          eventSource.close();
-          this.loadMcpActivity();
-        } else if (data.event === 'workflow_completed') {
-          this.currentStepIndex = 6;
-          this.isRunning = false;
-          this.stopTimer();
-          this.streamLogs.push({ agent: 'System', time: timeStr, text: data.message });
-          eventSource.close();
-          this.loadMcpActivity();
-          // Load final report metrics
-          this.api.getProjectReport(this.selectedProjectId).subscribe({
-            next: (rep: any) => {
-              this.workflowResult = {
-                total_requirements: rep.total_requirements ?? rep.requirements_count ?? 0,
-                total_scenarios: rep.total_scenarios ?? rep.scenarios_count ?? 0,
-                total_test_cases: rep.total_test_cases ?? rep.test_cases_count ?? 0,
-                total_scripts: rep.automated_test_cases ?? rep.total_scripts ?? rep.automation_scripts_count ?? 0,
-                report_summary: rep.executive_summary || rep.markdown_report || 'Autonomous testing completed.',
-              };
-            },
-          });
-        } else if (data.event === 'rate_limit_exceeded') {
-          this.isRunning = false;
-          this.isRateLimited = true;
-          this.rateLimitResetSeconds = data.retry_after_seconds || 60;
-          this.rateLimitMessage = data.message || 'AI API Rate Limit / Quota Exceeded (HTTP 429).';
-          this.stopTimer();
-          this.streamLogs.push({ agent: 'API Quota', time: timeStr, text: this.rateLimitMessage });
-          eventSource.close();
-          this.loadMcpActivity();
-
-          if (this.rateLimitTimer) clearInterval(this.rateLimitTimer);
-          this.rateLimitTimer = setInterval(() => {
-            if (this.rateLimitResetSeconds > 0) {
-              this.rateLimitResetSeconds--;
+            this.loadMcpActivity();
+          } else if (data.event === 'agent_completed') {
+            this.currentStepIndex = data.step;
+            if (this.currentStepIndex < this.pipelineSteps.length) {
+              this.activeAgentName = this.pipelineSteps[this.currentStepIndex].name;
+              this.activeOperation = `Executing ${this.pipelineSteps[this.currentStepIndex].name}...`;
             } else {
-              clearInterval(this.rateLimitTimer);
-              this.rateLimitTimer = null;
+              this.activeAgentName = data.agent;
+              this.activeOperation = data.details;
             }
-          }, 1000);
-        } else if (data.event === 'workflow_error') {
-          this.isRunning = false;
-          this.stopTimer();
-          this.streamLogs.push({ agent: 'Error', time: timeStr, text: data.error });
-          eventSource.close();
-          this.loadMcpActivity();
+            if (data.provider) this.activeProvider = data.provider;
+            if (data.model) this.activeModel = data.model;
+            
+            let countStr = '';
+            if (data.counts) {
+              const parts = Object.entries(data.counts).map(([k, v]) => `${v} ${k}`);
+              if (parts.length) countStr = ` (${parts.join(', ')})`;
+            }
+
+            this.streamLogs.push({
+              agent: data.agent,
+              time: timeStr,
+              text: `Step ${data.step}/${data.total_steps}: ${data.details}${countStr}`,
+            });
+
+            if (data.samples && Array.isArray(data.samples)) {
+              data.samples.slice(0, 3).forEach((sample: string) => {
+                this.streamLogs.push({
+                  agent: data.agent,
+                  time: timeStr,
+                  text: `  ↳ Artifact: ${sample}`,
+                });
+              });
+            }
+            this.loadMcpActivity();
+          } else if (data.event === 'workflow_cancelled') {
+            this.isRunning = false;
+            this.isCancelled = true;
+            this.stopTimer();
+            this.streamLogs.push({ agent: 'System', time: timeStr, text: data.message });
+            eventSource.close();
+            this.loadMcpActivity();
+          } else if (data.event === 'workflow_completed') {
+            this.currentStepIndex = 6;
+            this.isRunning = false;
+            this.stopTimer();
+            this.activeAgentName = 'Complete';
+            this.activeOperation = 'Workflow completed successfully.';
+            this.streamLogs.push({ agent: 'System', time: timeStr, text: data.message });
+            eventSource.close();
+            this.loadMcpActivity();
+            // Load final report metrics
+            this.api.getProjectReport(this.selectedProjectId).subscribe({
+              next: (rep: any) => {
+                this.ngZone.run(() => {
+                  this.workflowResult = {
+                    total_requirements: rep.total_requirements ?? rep.requirements_count ?? 0,
+                    total_scenarios: rep.total_scenarios ?? rep.scenarios_count ?? 0,
+                    total_test_cases: rep.total_test_cases ?? rep.test_cases_count ?? 0,
+                    total_scripts: rep.automated_test_cases ?? rep.total_scripts ?? rep.automation_scripts_count ?? 0,
+                    report_summary: rep.executive_summary || rep.markdown_report || 'Autonomous testing completed.',
+                  };
+                  this.cdr.detectChanges();
+                });
+              },
+            });
+          } else if (data.event === 'rate_limit_exceeded') {
+            this.isRunning = false;
+            this.isRateLimited = true;
+            this.rateLimitResetSeconds = data.retry_after_seconds || 60;
+            this.rateLimitMessage = data.message || 'AI API Rate Limit / Quota Exceeded (HTTP 429).';
+            this.stopTimer();
+            this.streamLogs.push({ agent: 'API Quota', time: timeStr, text: this.rateLimitMessage });
+            eventSource.close();
+            this.loadMcpActivity();
+
+            if (this.rateLimitTimer) clearInterval(this.rateLimitTimer);
+            this.rateLimitTimer = setInterval(() => {
+              this.ngZone.run(() => {
+                if (this.rateLimitResetSeconds > 0) {
+                  this.rateLimitResetSeconds--;
+                } else {
+                  clearInterval(this.rateLimitTimer);
+                  this.rateLimitTimer = null;
+                }
+                this.cdr.markForCheck();
+              });
+            }, 1000);
+          } else if (data.event === 'workflow_error') {
+            this.isRunning = false;
+            this.stopTimer();
+            this.streamLogs.push({ agent: 'Error', time: timeStr, text: data.error });
+            eventSource.close();
+            this.loadMcpActivity();
+          }
+        } catch (e) {
+          console.error('SSE parse error', e);
         }
-      } catch (e) {
-        console.error('SSE parse error', e);
-      }
+        this.cdr.detectChanges();
+      });
     };
 
     eventSource.onerror = (err) => {
-      console.warn('SSE stream disconnected or ended. Polling for workflow completion...', err);
-      eventSource.close();
-      if (this.isRunning && !this.isCancelled) {
-        this.checkWorkflowStatusPolling(1);
-      }
+      this.ngZone.run(() => {
+        console.warn('SSE stream disconnected or ended. Polling for workflow completion...', err);
+        eventSource.close();
+        if (this.isRunning && !this.isCancelled) {
+          this.checkWorkflowStatusPolling(1);
+        }
+        this.cdr.detectChanges();
+      });
     };
   }
 
@@ -895,35 +960,42 @@ export class WorkflowsComponent implements OnInit, OnDestroy {
 
     this.api.getProjectReport(this.selectedProjectId).subscribe({
       next: (rep: any) => {
-        if (rep && (rep.total_test_cases > 0 || rep.total_executions > 0 || rep.markdown_report)) {
-          this.currentStepIndex = 6;
-          this.isRunning = false;
-          this.stopTimer();
-          this.workflowResult = {
-            total_requirements: rep.total_requirements ?? rep.requirements_count ?? 0,
-            total_scenarios: rep.total_scenarios ?? rep.scenarios_count ?? 0,
-            total_test_cases: rep.total_test_cases ?? rep.test_cases_count ?? 0,
-            total_scripts: rep.automated_test_cases ?? rep.total_scripts ?? rep.automation_scripts_count ?? 0,
-            report_summary: rep.executive_summary || rep.markdown_report || 'Autonomous testing completed.',
-          };
-          this.streamLogs.push({
-            agent: 'System',
-            time: new Date().toLocaleTimeString(),
-            text: 'Autonomous LangGraph testing completed successfully.',
-          });
-          this.loadMcpActivity();
-        } else if (attempt < 12) {
-          setTimeout(() => this.checkWorkflowStatusPolling(attempt + 1), 2500);
-        } else {
-          this.runFallbackPipeline();
-        }
+        this.ngZone.run(() => {
+          if (rep && (rep.total_test_cases > 0 || rep.total_executions > 0 || rep.markdown_report)) {
+            this.currentStepIndex = 6;
+            this.isRunning = false;
+            this.stopTimer();
+            this.activeAgentName = 'Complete';
+            this.activeOperation = 'Workflow completed successfully.';
+            this.workflowResult = {
+              total_requirements: rep.total_requirements ?? rep.requirements_count ?? 0,
+              total_scenarios: rep.total_scenarios ?? rep.scenarios_count ?? 0,
+              total_test_cases: rep.total_test_cases ?? rep.test_cases_count ?? 0,
+              total_scripts: rep.automated_test_cases ?? rep.total_scripts ?? rep.automation_scripts_count ?? 0,
+              report_summary: rep.executive_summary || rep.markdown_report || 'Autonomous testing completed.',
+            };
+            this.streamLogs.push({
+              agent: 'System',
+              time: new Date().toLocaleTimeString(),
+              text: 'Autonomous LangGraph testing completed successfully.',
+            });
+            this.loadMcpActivity();
+            this.cdr.detectChanges();
+          } else if (attempt < 12) {
+            setTimeout(() => this.checkWorkflowStatusPolling(attempt + 1), 2500);
+          } else {
+            this.runFallbackPipeline();
+          }
+        });
       },
       error: () => {
-        if (attempt < 12) {
-          setTimeout(() => this.checkWorkflowStatusPolling(attempt + 1), 2500);
-        } else {
-          this.runFallbackPipeline();
-        }
+        this.ngZone.run(() => {
+          if (attempt < 12) {
+            setTimeout(() => this.checkWorkflowStatusPolling(attempt + 1), 2500);
+          } else {
+            this.runFallbackPipeline();
+          }
+        });
       },
     });
   }
@@ -939,21 +1011,29 @@ export class WorkflowsComponent implements OnInit, OnDestroy {
       })
       .subscribe({
         next: (res) => {
-          this.isRunning = false;
-          this.stopTimer();
-          this.currentStepIndex = 6;
-          this.workflowResult = res;
-          this.streamLogs.push({
-            agent: 'System',
-            time: new Date().toLocaleTimeString(),
-            text: 'Autonomous LangGraph testing completed successfully.',
+          this.ngZone.run(() => {
+            this.isRunning = false;
+            this.stopTimer();
+            this.currentStepIndex = 6;
+            this.activeAgentName = 'Complete';
+            this.activeOperation = 'Workflow completed successfully.';
+            this.workflowResult = res;
+            this.streamLogs.push({
+              agent: 'System',
+              time: new Date().toLocaleTimeString(),
+              text: 'Autonomous LangGraph testing completed successfully.',
+            });
+            this.loadMcpActivity();
+            this.cdr.detectChanges();
           });
-          this.loadMcpActivity();
         },
         error: (err) => {
-          this.isRunning = false;
-          this.stopTimer();
-          alert(`Workflow failed: ${err.error?.detail || err.message}`);
+          this.ngZone.run(() => {
+            this.isRunning = false;
+            this.stopTimer();
+            alert(`Workflow failed: ${err.error?.detail || err.message}`);
+            this.cdr.detectChanges();
+          });
         },
       });
   }
