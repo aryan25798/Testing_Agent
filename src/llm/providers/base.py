@@ -52,7 +52,7 @@ class BaseLLMProvider(ABC):
         system_prompt: Optional[str] = None,
         output_schema: Optional[Type[BaseModel]] = None,
         model: Optional[str] = None,
-        temperature: float = 0.1,
+        temperature: Optional[float] = None,
     ) -> LLMResponse:
         """Generates a structured Pydantic object or JSON dictionary response."""
         pass

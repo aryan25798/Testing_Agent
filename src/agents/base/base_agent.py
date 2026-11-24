@@ -65,6 +65,7 @@ class BaseAgent(ABC):
                     system_prompt=self.system_instructions,
                     output_schema=output_schema,
                     model=model_id,
+                    temperature=None,
                 )
                 latency = time.time() - start_time
 

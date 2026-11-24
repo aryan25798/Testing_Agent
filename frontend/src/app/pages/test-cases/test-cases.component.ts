@@ -390,8 +390,16 @@ export class TestCasesComponent implements OnInit {
         this.route.queryParams.subscribe((params) => {
           if (params['project_id']) {
             this.selectedProjectId = params['project_id'];
-          } else if (this.projects.length) {
-            this.selectedProjectId = this.projects[0].id;
+          } else {
+            const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('active_project_id') : null;
+            if (saved && this.projects.some((p) => p.id === saved)) {
+              this.selectedProjectId = saved;
+            } else if (this.projects.length) {
+              this.selectedProjectId = this.projects[0].id;
+            }
+          }
+          if (this.selectedProjectId && typeof localStorage !== 'undefined') {
+            localStorage.setItem('active_project_id', this.selectedProjectId);
           }
           this.loadTestCases();
         });
@@ -444,8 +452,14 @@ export class TestCasesComponent implements OnInit {
   }
 
   onProjectChange() {
+    if (this.selectedProjectId && typeof localStorage !== 'undefined') {
+      localStorage.setItem('active_project_id', this.selectedProjectId);
+    }
     this.currentPage = 1;
     this.selectedIds.clear();
+    this.testCases = [];
+    this.totalCases = 0;
+    this.selectedCase = null;
     this.loadTestCases();
   }
 

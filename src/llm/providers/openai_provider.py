@@ -82,12 +82,131 @@ class OpenAIProvider(BaseLLMProvider):
             logger.warning(f"Failed to retrieve OpenAI models list: {e}. Using catalog.")
             return default_openai_models
 
+    def _build_completion_payload(
+        self,
+        target_model: str,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+        structured_json: bool = False,
+    ) -> Dict[str, Any]:
+        """Builds capability-aware chat completion parameters for OpenAI models."""
+        from src.llm.capabilities.models import (
+            is_custom_temperature_supported,
+            uses_max_completion_tokens,
+            prefers_developer_role,
+        )
+
+        use_dev_role = prefers_developer_role(target_model)
+
+        messages = []
+        if system_prompt:
+            role = "developer" if use_dev_role else "system"
+            content = system_prompt
+            if structured_json:
+                content += "\nYou MUST return valid, well-formed RFC-8259 JSON matching the requested schema."
+            messages.append({"role": role, "content": content})
+        elif structured_json:
+            role = "developer" if use_dev_role else "system"
+            messages.append({"role": role, "content": "You MUST return valid, well-formed RFC-8259 JSON."})
+
+        messages.append({"role": "user", "content": prompt})
+
+        payload: Dict[str, Any] = {
+            "model": target_model,
+            "messages": messages,
+        }
+
+        # Temperature: only send if the model actually supports custom temperature and temperature is specified
+        if is_custom_temperature_supported(target_model):
+            if temperature is not None:
+                payload["temperature"] = temperature
+        else:
+            logger.debug(f"Omitted custom temperature parameter for capability-restricted model '{target_model}'.")
+
+        # Token limits: distinction between max_tokens and max_completion_tokens
+        if max_tokens:
+            if uses_max_completion_tokens(target_model):
+                payload["max_completion_tokens"] = max_tokens
+            else:
+                payload["max_tokens"] = max_tokens
+
+        # Structured JSON response format
+        if structured_json:
+            payload["response_format"] = {"type": "json_object"}
+
+        return payload
+
+    def _execute_completion_with_auto_correction(self, payload: Dict[str, Any]) -> Any:
+        """
+        Executes OpenAI chat completion with automatic parameter error recovery
+        for temperature, max_tokens/max_completion_tokens, and system role mismatches.
+        Never retries permanent non-parameter errors.
+        """
+        from src.llm.capabilities.models import (
+            mark_model_temperature_unsupported,
+            mark_model_requires_max_completion_tokens,
+            mark_model_prefers_developer_role,
+        )
+
+        current_payload = dict(payload)
+        target_model = current_payload.get("model", "")
+
+        for attempt in range(3):
+            try:
+                return self._client.chat.completions.create(**current_payload)
+            except Exception as e:
+                err_msg = str(e)
+                err_lower = err_msg.lower()
+
+                # 1. Temperature parameter rejection (e.g. 400 Unsupported value: 'temperature')
+                if "temperature" in err_lower and any(w in err_lower for w in ["does not support", "only the default", "unsupported value", "invalid parameter"]):
+                    logger.warning(f"Model '{target_model}' rejected custom temperature. Auto-correcting payload by stripping temperature.")
+                    mark_model_temperature_unsupported(target_model)
+                    current_payload.pop("temperature", None)
+                    continue
+
+                # 2. max_tokens vs max_completion_tokens rejection
+                if "max_tokens" in err_lower and ("max_completion_tokens" in err_lower or "unsupported" in err_lower):
+                    logger.warning(f"Model '{target_model}' requires max_completion_tokens. Auto-correcting payload.")
+                    mark_model_requires_max_completion_tokens(target_model)
+                    val = current_payload.pop("max_tokens", None)
+                    if val:
+                        current_payload["max_completion_tokens"] = val
+                    continue
+
+                # 3. System role rejection
+                if "role" in err_lower and "system" in err_lower:
+                    logger.warning(f"Model '{target_model}' rejected system role. Converting to developer role.")
+                    mark_model_prefers_developer_role(target_model)
+                    converted_msgs = []
+                    for m in current_payload.get("messages", []):
+                        if m.get("role") == "system":
+                            converted_msgs.append({"role": "developer", "content": m.get("content", "")})
+                        else:
+                            converted_msgs.append(m)
+                    current_payload["messages"] = converted_msgs
+                    continue
+
+                # 4. JSON object response_format rejection
+                if "response_format" in err_lower and "json_object" in err_lower:
+                    logger.warning(f"Model '{target_model}' rejected json_object response_format. Falling back to prompt-guided JSON.")
+                    current_payload.pop("response_format", None)
+                    continue
+
+                # Permanent configuration errors or network/quota errors: do not retry in this parameter correction loop
+                raise e
+
+        # If loop exhausts, attempt one final call with stripped payload
+        return self._client.chat.completions.create(**current_payload)
+
     def generate_text(
         self,
         prompt: str,
         system_prompt: Optional[str] = None,
         model: Optional[str] = None,
-        temperature: float = 0.2,
+        temperature: Optional[float] = 0.2,
         max_tokens: int = 4096,
     ) -> LLMResponse:
         target_model = model or settings.DEFAULT_OPENAI_MODEL
@@ -95,17 +214,15 @@ class OpenAIProvider(BaseLLMProvider):
 
         if self._client:
             try:
-                messages = []
-                if system_prompt:
-                    messages.append({"role": "system", "content": system_prompt})
-                messages.append({"role": "user", "content": prompt})
-
-                response = self._client.chat.completions.create(
-                    model=target_model,
-                    messages=messages,
+                payload = self._build_completion_payload(
+                    target_model=target_model,
+                    prompt=prompt,
+                    system_prompt=system_prompt,
                     temperature=temperature,
                     max_tokens=max_tokens,
+                    structured_json=False,
                 )
+                response = self._execute_completion_with_auto_correction(payload)
                 latency = time.time() - start_time
                 text = response.choices[0].message.content or ""
                 in_tokens = response.usage.prompt_tokens if response.usage else len(prompt.split())
@@ -137,29 +254,35 @@ class OpenAIProvider(BaseLLMProvider):
         system_prompt: Optional[str] = None,
         output_schema: Optional[Type[BaseModel]] = None,
         model: Optional[str] = None,
-        temperature: float = 0.1,
+        temperature: Optional[float] = None,
     ) -> LLMResponse:
         target_model = model or settings.DEFAULT_OPENAI_MODEL
         start_time = time.time()
 
         if self._client:
             try:
-                messages = []
-                system_text = (system_prompt or "") + "\nYou MUST return valid JSON."
-                messages.append({"role": "system", "content": system_text})
-                messages.append({"role": "user", "content": prompt})
+                schema_hint = ""
+                if output_schema:
+                    try:
+                        schema_hint = f"\nExpected JSON schema:\n{json.dumps(output_schema.model_json_schema())}"
+                    except Exception:
+                        pass
+                full_prompt = f"{prompt}{schema_hint}" if schema_hint else prompt
 
-                response = self._client.chat.completions.create(
-                    model=target_model,
-                    messages=messages,
+                payload = self._build_completion_payload(
+                    target_model=target_model,
+                    prompt=full_prompt,
+                    system_prompt=system_prompt,
                     temperature=temperature,
-                    response_format={"type": "json_object"},
+                    max_tokens=None,
+                    structured_json=True,
                 )
+                response = self._execute_completion_with_auto_correction(payload)
                 latency = time.time() - start_time
                 raw_text = response.choices[0].message.content or "{}"
                 from src.core.utils.json_sanitizer import repair_and_parse_json
                 data = repair_and_parse_json(raw_text)
-                in_tokens = response.usage.prompt_tokens if response.usage else len(prompt.split())
+                in_tokens = response.usage.prompt_tokens if response.usage else len(full_prompt.split())
                 out_tokens = response.usage.completion_tokens if response.usage else len(raw_text.split())
 
                 return LLMResponse(

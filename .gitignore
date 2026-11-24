@@ -33,6 +33,13 @@ htmlcov/
 .tox/
 .nox/
 tests/e2e/screenshots/*.png
+screenshots/
+
+# Node & Frontend
+node_modules/
+frontend/node_modules/
+.angular/
+frontend/.angular/
 
 # Logs and Local Databases
 *.log

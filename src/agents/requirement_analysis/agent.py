@@ -5,10 +5,11 @@ Identifies functional/non-functional requirements, ambiguities, and edge cases.
 Never invents missing business requirements.
 """
 
-from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field
+from typing import List, Optional, Dict, Any, Union
+from pydantic import BaseModel, Field, field_validator, model_validator
 from src.agents.base.base_agent import BaseAgent
 from src.core.logging import get_logger
+from src.core.exceptions import LLMGenerationError
 
 logger = get_logger("requirement_analysis_agent")
 
@@ -25,11 +26,11 @@ class RequirementAnalysisInput(BaseModel):
 class ExtractedRequirement(BaseModel):
     requirement_key: str = Field(description="Unique requirement ID like REQ-001 or JIRA key")
     title: str = Field(description="Clear title of the requirement")
-    description: str = Field(description="Detailed requirement description")
-    business_objective: str = Field(description="Core business value or goal")
-    functional_requirements: List[str] = Field(description="Specific functional behaviors expected")
+    description: str = Field(default="", description="Detailed requirement description")
+    business_objective: str = Field(default="", description="Core business value or goal")
+    functional_requirements: List[str] = Field(default_factory=list, description="Specific functional behaviors expected")
     non_functional_requirements: List[str] = Field(default_factory=list, description="Performance, security, usability rules")
-    acceptance_criteria: List[str] = Field(description="Conditions that must be met to consider complete")
+    acceptance_criteria: List[str] = Field(default_factory=list, description="Conditions that must be met to consider complete")
     business_rules: List[str] = Field(default_factory=list, description="Explicit constraints or business policies")
     dependencies: List[str] = Field(default_factory=list, description="External systems or predecessor requirements")
     missing_information: List[str] = Field(default_factory=list, description="Gaps or undefined behavior in requirements")
@@ -38,24 +39,38 @@ class ExtractedRequirement(BaseModel):
     priority: str = Field(default="Medium", description="Low, Medium, High, or Critical")
     testability_status: str = Field(default="Testable", description="Testable, Needs Clarification, or Untestable")
 
+    @field_validator("description", "business_objective", mode="before")
+    @classmethod
+    def coerce_string_field(cls, v: Any) -> str:
+        if isinstance(v, list):
+            return "\n".join(str(x).strip() for x in v if x is not None)
+        return str(v) if v is not None else ""
+
+    @field_validator("functional_requirements", "acceptance_criteria", "business_rules", "non_functional_requirements", mode="before")
+    @classmethod
+    def coerce_list_field(cls, v: Any) -> List[str]:
+        if isinstance(v, str):
+            return [line.strip("- *").strip() for line in v.splitlines() if line.strip()]
+        if isinstance(v, list):
+            return [str(item).strip() for item in v if item is not None]
+        return []
+
 
 class RequirementAnalysisOutput(BaseModel):
-    requirements: List[ExtractedRequirement]
-    summary: str
+    requirements: List[ExtractedRequirement] = Field(default_factory=list)
+    summary: str = Field(default="")
 
 
 SYSTEM_INSTRUCTIONS = """You are an expert Principal Software Testing & QA Requirements Analyst.
-Your mission is to rigorously analyze requirements (user stories, acceptance criteria, business rules, PRDs) and extract structured, testable requirements.
+Your mission is to rigorously analyze requirements (user stories, SRS documents, acceptance criteria, business rules, PRDs) and extract structured, verifiable, testable requirements.
 
-STRICT OVERRIDING RULES:
-1. USER SCOPING DIRECTIVES ARE TOP PRIORITY:
-   - If the user explicitly specifies a target scope or quantity limit (e.g. "create only 3 login tests", "limit to 5 test cases", "only test login with three different roles"), you MUST TREAT THIS AS AN OVERRIDING SCOPING FILTER.
-   - Do NOT extract dozens of unrequested background requirements from long PRD text if the user explicitly asked to focus on a specific feature or test count.
-   - Extract ONLY the requirement(s) directly requested by the user's explicit directive (e.g., Role-based login authentication covering the 3 requested roles).
-2. NEVER INVENT MISSING BUSINESS REQUIREMENTS outside the requested scope.
-3. Identify both functional and non-functional requirements within the requested scope.
-4. Identify clear, measurable acceptance criteria.
-5. Return only valid JSON conforming to the requested schema.
+CORE PRINCIPLES:
+1. COMPREHENSIVE EXTRACTION: Extract all distinct functional and non-functional requirements from the submitted specification without arbitrary truncation.
+2. PRESERVE GROUND TRUTH: Never invent missing business requirements outside the provided specification.
+3. IDENTIFY GAPS HONESTLY: If requirements are ambiguous or incomplete, document the exact ambiguities under 'missing_information' and provide targeted 'clarification_questions'.
+4. STRUCTURED DETAIL: For each requirement, extract clear acceptance criteria, functional behaviors, business rules, and non-functional constraints (security, performance, usability).
+5. If the user gave an explicit scoping directive (e.g., 'focus on checkout' or 'generate 5 tests'), prioritize and highlight those features while maintaining traceability.
+6. Return only valid JSON conforming to the requested schema.
 """
 
 
@@ -75,15 +90,11 @@ class RequirementAnalysisAgent(BaseAgent):
         )
 
         scoping_prompt = ""
-        if input_data.user_directive or input_data.target_count:
+        if input_data.user_directive:
             scoping_prompt = f"""
-CRITICAL OVERRIDING USER SCOPE DIRECTIVE:
-The user explicitly commanded: "{input_data.user_directive or f'Create only {input_data.target_count} tests'}"
-Target Test Count: {input_data.target_count or 'Specified by directive'}
-MANDATORY INSTRUCTIONS:
-1. Extract ONLY the requirement(s) that directly address this user directive (e.g., if the user asked for 3 login tests with different roles, extract ONLY 1 requirement for Role-Based Login & Authentication).
-2. DO NOT extract requirements for other features, modules, or background architecture in the PRD!
-3. Return AT MOST 1 or 2 requirements in the requirements array!"""
+EXPLICIT USER TESTING INSTRUCTION:
+"{input_data.user_directive}"
+Ensure requirements directly address this testing instruction with highest priority."""
 
         prompt = f"""Please analyze the following software requirements data:
 
@@ -95,11 +106,12 @@ Title: {input_data.title}
 
 {wrapped_requirements}
 
-CRITICAL TRACEABILITY & SCOPING RULES:
-1. USER DIRECTIVE PRIORITY: Look for explicit user directives or count constraints at the top of the input (e.g., 'create only 3 login tests with three different roles', 'only test checkout', 'limit to 5').
-2. If an explicit user instruction/directive is present, it OVERRIDES general specification extraction! Extract ONLY the specific requirements needed to satisfy the user's targeted request. Do NOT extract unrequested features from the background PRD text!
-3. If no specific user directive is given, extract all distinct requirements systematically.
-4. Preserve any explicit user requirement IDs as 'requirement_key'."""
+ANALYSIS GUIDELINES:
+1. Extract all verifiable functional and non-functional requirements systematically.
+2. Group related functionality into logical requirements with keys REQ-001, REQ-002, etc. (or keep Jira keys if provided).
+3. Identify all actors, user journeys, business rules, and acceptance criteria.
+4. If details are missing or ambiguous, list them under 'missing_information' and 'clarification_questions'.
+5. Return complete JSON matching the RequirementAnalysisOutput schema."""
 
         try:
             data = self.execute_with_llm(
@@ -109,83 +121,12 @@ CRITICAL TRACEABILITY & SCOPING RULES:
             )
             from src.core.utils.json_sanitizer import normalize_to_schema
             validated = normalize_to_schema(data, RequirementAnalysisOutput)
-            if validated.requirements:
-                if (input_data.user_directive or input_data.target_count) and len(validated.requirements) > 1:
-                    directive_lower = (input_data.user_directive or "").lower()
-                    if any(w in directive_lower for w in ["login", "role", "auth"]):
-                        auth_matches = [
-                            r for r in validated.requirements
-                            if any(w in r.title.lower() or w in r.description.lower() for w in ["auth", "login", "role", "permission"])
-                        ]
-                        if auth_matches:
-                            validated.requirements = auth_matches[:1]
-                        else:
-                            validated.requirements = validated.requirements[:1]
-                    elif input_data.target_count and input_data.target_count <= 3:
-                        validated.requirements = validated.requirements[:1]
-                return validated
-        except Exception as e:
-            logger.warning(f"LLM requirement extraction fell back to rule-based parser: {e}")
-
-        # Deterministic Rule-Based Fallback
-        import re
-        custom_key_match = re.search(r"\b(REQ-[A-Z0-9_\-]+|[A-Z]+-\d+)\b", input_data.raw_text)
-        req_key = custom_key_match.group(1) if custom_key_match else (input_data.jira_issue_key or "REQ-001")
-
-        raw_lower = (input_data.raw_text + " " + (input_data.user_directive or "")).lower()
-        if "login" in raw_lower or "role" in raw_lower or "auth" in raw_lower:
-            fallback_title = "Role-Based User Authentication & Access Control"
-            fallback_desc = "Verify multi-role authentication flows (Admin, Trainer, Trainee/User) with role-specific access permissions."
-            fallback_funcs = [
-                "Authenticate Admin user credentials and grant admin dashboard access.",
-                "Authenticate Trainer user credentials and grant cohort/session access.",
-                "Authenticate Trainee user credentials and grant training schedule access.",
-            ]
-        elif "trainmate" in raw_lower:
-            fallback_title = "TrainMate Cohort & Trainer Allocation System"
-            fallback_desc = "Core functionality verification for TrainMate training cohort and trainer allocations."
-            fallback_funcs = [
-                "Manage training cohorts and module schedules.",
-                "Allocate certified trainers to active cohorts.",
-                "Validate user authentication and role-based permissions.",
-            ]
-        else:
-            fallback_title = input_data.title or "Core Functionality Verification"
-            fallback_desc = input_data.raw_text[:300].strip()
-            fallback_funcs = [
-                "System must accept valid user inputs and provide immediate confirmation.",
-                "System must reject invalid or malicious payloads with actionable errors.",
-                "State changes must be persisted accurately in the database.",
-            ]
-
-        return RequirementAnalysisOutput(
-            summary=f"Analyzed requirement text ({len(input_data.raw_text.split())} words). Extracted structured baseline.",
-            requirements=[
-                ExtractedRequirement(
-                    requirement_key=req_key,
-                    title=fallback_title,
-                    description=fallback_desc,
-                    business_objective="Ensure user flows operate reliably without regression.",
-                    functional_requirements=fallback_funcs,
-                    non_functional_requirements=[
-                        "Response time must be within 2 seconds under standard load.",
-                        "Sensitive data fields must be masked and securely handled.",
-                    ],
-                    acceptance_criteria=[
-                        "All required input fields are validated before submission.",
-                        "Successful execution returns HTTP 200/201 or renders the success screen.",
-                        "Failed operations display descriptive user-friendly alerts.",
-                    ],
-                    business_rules=[
-                        "Duplicate submissions must be prevented.",
-                        "Unauthorized or expired sessions must redirect to login.",
-                    ],
-                    dependencies=["Authentication Service", "Database Connection"],
-                    missing_information=["Specific timeout thresholds under degraded network conditions."],
-                    clarification_questions=["What is the expected behavior if third-party services timeout?"],
-                    risk_level="Medium",
-                    priority="High",
-                    testability_status="Testable",
+            if not validated.requirements:
+                raise LLMGenerationError(
+                    "AI requirement analysis returned empty requirements collection.",
+                    details={"agent": self.agent_id, "project_id": project_id},
                 )
-            ],
-        )
+            return validated
+        except Exception as e:
+            logger.error(f"AI Requirement Analysis failed: {e}")
+            raise e

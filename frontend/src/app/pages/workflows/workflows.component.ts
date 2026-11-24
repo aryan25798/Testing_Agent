@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
-import { Project } from '../../core/models/types';
+import { Project, ModelInfo } from '../../core/models/types';
 import { IconComponent } from '../../shared/components/icon.component';
 
 @Component({
@@ -261,7 +261,7 @@ import { IconComponent } from '../../shared/components/icon.component';
             class="w-full px-4 py-3 text-xs rounded-xl border border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none font-sans"
           ></textarea>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700">
             <div>
               <span class="block text-[11px] font-bold text-slate-500 dark:text-slate-400">Target URL</span>
               <span class="font-mono text-xs text-blue-600 dark:text-blue-400 font-semibold truncate block mt-1" [title]="currentProject?.base_url || 'http://localhost:4200'">{{ currentProject?.base_url || 'http://localhost:4200' }}</span>
@@ -274,6 +274,28 @@ import { IconComponent } from '../../shared/components/icon.component';
               >
                 <option value="playwright">Playwright (Fast & Modern)</option>
                 <option value="selenium">Selenium (WebDriver POM)</option>
+              </select>
+            </div>
+            <div>
+              <span class="block text-[11px] font-bold text-slate-500 dark:text-slate-400">AI Provider</span>
+              <select
+                [(ngModel)]="selectedProvider"
+                (change)="onProviderChange()"
+                class="mt-1 px-2.5 py-1 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 outline-none focus:border-blue-500 cursor-pointer w-full"
+              >
+                <option value="gemini">Google Gemini</option>
+                <option value="openai">OpenAI</option>
+              </select>
+            </div>
+            <div>
+              <span class="block text-[11px] font-bold text-slate-500 dark:text-slate-400">AI Model</span>
+              <select
+                [(ngModel)]="selectedModel"
+                class="mt-1 px-2.5 py-1 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 outline-none focus:border-blue-500 cursor-pointer w-full"
+              >
+                <option *ngFor="let m of filteredModels" [value]="m.model_id">
+                  {{ m.display_name || m.model_id }}
+                </option>
               </select>
             </div>
             <div>
@@ -492,10 +514,15 @@ export class WorkflowsComponent implements OnInit, OnDestroy {
   currentStepIndex = -1;
   activeTab: 'telemetry' | 'mcp' = 'telemetry';
 
+  selectedProvider = 'openai';
+  selectedModel = 'gpt-6.2-sol';
+  allModels: ModelInfo[] = [];
+  filteredModels: ModelInfo[] = [];
+
   activeAgentName = '';
   activeOperation = '';
-  activeProvider = 'Gemini';
-  activeModel = 'gemini-2.5-flash';
+  activeProvider = 'OpenAI';
+  activeModel = 'gpt-6.2-sol';
   elapsedSeconds = 0;
   private timerInterval: any = null;
 
@@ -514,6 +541,8 @@ export class WorkflowsComponent implements OnInit, OnDestroy {
   ];
 
   ngOnInit() {
+    this.loadAvailableModels();
+
     this.api.getFirstRunStatus().subscribe({
       next: (st) => {
         if (st.needs_setup) {
@@ -530,12 +559,56 @@ export class WorkflowsComponent implements OnInit, OnDestroy {
           if (params['project_id']) {
             this.selectedProjectId = params['project_id'];
           } else if (this.projects.length) {
-            this.selectedProjectId = this.projects[0].id;
+            const savedProjectId = typeof localStorage !== 'undefined' ? localStorage.getItem('active_project_id') : null;
+            if (savedProjectId && this.projects.some((p) => p.id === savedProjectId)) {
+              this.selectedProjectId = savedProjectId;
+            } else {
+              this.selectedProjectId = this.projects[0].id;
+            }
           }
           this.onProjectSelect();
         });
       },
     });
+  }
+
+  loadAvailableModels() {
+    this.api.getModels().subscribe({
+      next: (models) => {
+        this.allModels = models || [];
+        this.onProviderChange();
+      },
+      error: () => {
+        this.onProviderChange();
+      },
+    });
+  }
+
+  onProviderChange() {
+    const p = (this.selectedProvider || 'openai').toLowerCase();
+    const matched = this.allModels.filter((m) => m.provider?.toLowerCase() === p);
+    if (matched.length > 0) {
+      this.filteredModels = matched;
+    } else {
+      if (p === 'openai') {
+        this.filteredModels = [
+          { model_id: 'gpt-6.2-sol', display_name: 'OpenAI gpt-6.2-sol', provider: 'openai', description: 'Advanced frontier reasoning model', is_available: true },
+          { model_id: 'gpt-4o', display_name: 'OpenAI gpt-4o', provider: 'openai', description: 'Omni multi-modal production model', is_available: true },
+          { model_id: 'gpt-4o-mini', display_name: 'OpenAI gpt-4o-mini', provider: 'openai', description: 'Fast lightweight model', is_available: true },
+        ];
+      } else {
+        this.filteredModels = [
+          { model_id: 'gemini-2.5-flash', display_name: 'Google Gemini 2.5 Flash', provider: 'gemini', description: 'Ultra-fast low-latency multimodal model', is_available: true },
+          { model_id: 'gemini-2.5-pro', display_name: 'Google Gemini 2.5 Pro', provider: 'gemini', description: 'Complex reasoning model', is_available: true },
+        ];
+      }
+    }
+    const hasCurrent = this.filteredModels.some((m) => m.model_id === this.selectedModel);
+    if (!hasCurrent && this.filteredModels.length > 0) {
+      this.selectedModel = this.filteredModels[0].model_id;
+    }
+    this.activeProvider = this.selectedProvider === 'openai' ? 'OpenAI' : 'Gemini';
+    this.activeModel = this.selectedModel;
   }
 
   ngOnDestroy() {
@@ -576,8 +649,16 @@ export class WorkflowsComponent implements OnInit, OnDestroy {
     if (this.currentProject?.framework) {
       this.selectedFramework = this.currentProject.framework.toLowerCase() === 'selenium' ? 'selenium' : 'playwright';
     }
-    if (this.currentProject?.description && !this.requirementsText) {
-      this.requirementsText = this.currentProject.description;
+    // Strictly isolate state per project: never bleed another project's requirements or results
+    this.requirementsText = this.currentProject?.description || '';
+    this.workflowResult = null;
+    this.streamLogs = [];
+    this.currentStepIndex = -1;
+    this.isCancelled = false;
+    if (this.selectedProjectId) {
+      try {
+        localStorage.setItem('active_project_id', this.selectedProjectId);
+      } catch (e) {}
     }
     this.loadMcpActivity();
   }
@@ -647,6 +728,8 @@ export class WorkflowsComponent implements OnInit, OnDestroy {
     this.currentStepIndex = 0;
     this.activeAgentName = 'Requirements Analyst';
     this.activeOperation = 'Analyzing requirements ground truth & extracting verifiable criteria...';
+    this.activeProvider = this.selectedProvider === 'openai' ? 'OpenAI' : 'Gemini';
+    this.activeModel = this.selectedModel;
     this.startTimer();
 
     if (this.activeEventSource) {
@@ -659,6 +742,8 @@ export class WorkflowsComponent implements OnInit, OnDestroy {
       framework: this.selectedFramework,
       browser: 'chromium',
       headed: this.isHeadedMode,
+      provider: this.selectedProvider,
+      model: this.selectedModel,
     });
 
     this.activeEventSource = new EventSource(streamUrl);
@@ -675,6 +760,18 @@ export class WorkflowsComponent implements OnInit, OnDestroy {
         if (data.event === 'workflow_started') {
           this.streamLogs.push({ agent: 'LangGraph', time: timeStr, text: data.message });
           this.loadMcpActivity();
+        } else if (data.event === 'agent_started') {
+          this.currentStepIndex = Math.max(0, (data.step || 1) - 1);
+          this.activeAgentName = data.agent;
+          this.activeOperation = data.details || `Executing ${data.agent}...`;
+          if (data.provider) this.activeProvider = data.provider;
+          if (data.model) this.activeModel = data.model;
+          this.streamLogs.push({
+            agent: data.agent,
+            time: timeStr,
+            text: `[Step ${data.step}/${data.total_steps}] ${data.details}`,
+          });
+          this.loadMcpActivity();
         } else if (data.event === 'agent_completed') {
           this.currentStepIndex = data.step;
           if (this.currentStepIndex < this.pipelineSteps.length) {
@@ -684,6 +781,8 @@ export class WorkflowsComponent implements OnInit, OnDestroy {
             this.activeAgentName = data.agent;
             this.activeOperation = data.details;
           }
+          if (data.provider) this.activeProvider = data.provider;
+          if (data.model) this.activeModel = data.model;
           
           let countStr = '';
           if (data.counts) {
@@ -696,6 +795,16 @@ export class WorkflowsComponent implements OnInit, OnDestroy {
             time: timeStr,
             text: `Step ${data.step}/${data.total_steps}: ${data.details}${countStr}`,
           });
+
+          if (data.samples && Array.isArray(data.samples)) {
+            data.samples.slice(0, 3).forEach((sample: string) => {
+              this.streamLogs.push({
+                agent: data.agent,
+                time: timeStr,
+                text: `  ↳ Artifact: ${sample}`,
+              });
+            });
+          }
           this.loadMcpActivity();
         } else if (data.event === 'workflow_cancelled') {
           this.isRunning = false;
@@ -769,6 +878,8 @@ export class WorkflowsComponent implements OnInit, OnDestroy {
         project_id: this.selectedProjectId,
         requirements_text: this.requirementsText,
         framework: this.selectedFramework,
+        provider: this.selectedProvider,
+        model: this.selectedModel,
       })
       .subscribe({
         next: (res) => {

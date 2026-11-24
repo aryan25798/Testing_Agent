@@ -81,7 +81,8 @@ def requirement_node(state: TestingWorkflowState) -> Dict[str, Any]:
     target_count = state.get("target_test_count")
     user_directive = None
     if raw_text:
-        m = re.search(r'\b(?:only|generate|create|limit\s+to|at\s+most)?\s*(\d+)\s*(?:login\s+|role[- ]based\s+|test\s+cases?|tests?)\b', raw_text, re.IGNORECASE)
+        # Only set target_count if user explicitly commanded 'only N tests', 'limit to N tests', 'exactly N tests'
+        m = re.search(r'\b(?:only|limit\s+to|exactly|at\s+most)\s+(\d+)\s*(?:login\s+|role[- ]based\s+|test\s+cases?|tests?|scenarios?)\b', raw_text, re.IGNORECASE)
         if m:
             try:
                 target_count = int(m.group(1))
@@ -92,7 +93,8 @@ def requirement_node(state: TestingWorkflowState) -> Dict[str, Any]:
         lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
         if lines:
             first_line = lines[0]
-            if any(k in first_line.lower() for k in ["only", "generate", "create", "test", "login", "role", "verify", "diffrent", "different"]):
+            # Only set user_directive if the line explicitly starts with an imperative scoping command
+            if re.match(r'^(?:only|limit\s+to|please\s+only|focus\s+only|strictly)\b', first_line, re.IGNORECASE):
                 user_directive = first_line
                 logger.info(f"Detected explicit user scoping directive: '{user_directive}'")
 

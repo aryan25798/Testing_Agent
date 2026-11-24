@@ -117,25 +117,30 @@ All capabilities listed below are **fully implemented and verified** in the code
   5. *Audit Log*: Immutable log of every tool execution, actor, parameters, latency, and status.
 
 #### 3. AI Model Engine & Independent Per-Agent Model Router
-- **What it does**: Supports both **Google Gemini** (Gemini 2.5 Flash, Gemini 2.5 Pro) and **OpenAI** (GPT-4o, GPT-4o-mini, o1, o3-mini) with independent model assignment per agent.
-- **Why it is useful**: Optimizes cost, speed, and cognitive power. Use ultra-fast Flash models for initial requirement parsing, and switch to GPT-4o or Gemini 2.5 Pro for complex locator generation and root-cause debugging.
+- **What it does**: Supports both **Google Gemini** (Gemini 2.5 Flash, Gemini 2.5 Pro) and **OpenAI** (`gpt-6.2-sol`, GPT-4o, GPT-4o-mini, o1, o3-mini) with independent model assignment per agent.
+- **Capability-Aware Parameter Negotiation**: Built-in compatibility layer detects model capabilities and prevents HTTP 400 parameter errors (e.g., omitting `temperature` for models like `gpt-6.2-sol` that enforce default temperature, and automatically adapting token limits between `max_tokens` and `max_completion_tokens`).
+- **Why it is useful**: Optimizes cost, speed, and cognitive power. Use ultra-fast Flash models for initial requirement parsing, and switch to `gpt-6.2-sol`, GPT-4o, or Gemini 2.5 Pro for complex locator generation and root-cause debugging.
 - **Access**: Navigate to `/models` or click **AI Model Settings** in the sidebar.
 - **Internal Mechanism**: Dynamic model discovery queries configured providers at runtime via LiteLLM and native SDKs without hardcoded limitations. Credentials are encrypted in the local vault.
 
 #### 4. Multi-Agent Workflow Studio
-- **What it does**: Visualizes and runs the full 6-agent testing pipeline as a stateful LangGraph state machine.
-- **Why it is useful**: Automates the journey from raw requirements to finished execution and reporting in a single unified flow.
+- **What it does**: Visualizes and runs the full 6-agent testing pipeline as a stateful LangGraph state machine with real-time SSE streaming telemetry.
+- **Strict Project Isolation**: Enforces zero cross-project contamination. When switching between projects (e.g. TrainMate, YouTube, IRCTC), all frontend state, requirements, logs, scenarios, and test case tables are immediately cleared and re-isolated.
+- **Dynamic Model Selection**: Select providers and models on-the-fly directly inside the Workflow Studio before initiating agent execution.
+- **Why it is useful**: Automates the journey from raw requirements to finished execution and reporting in a single unified flow with real-time visibility into agent reasoning.
 - **Access**: Navigate to `/workflows` or click **Workflows** in the sidebar.
 - **Internal Mechanism**: State transitions are managed by `TestingWorkflowState` passing typed inputs and outputs between agents.
 
 #### 5. Test Case Design & Automation Generation
 - **What it does**: Translates test scenarios into step-by-step test cases (preconditions, execution actions, expected assertions, test data) and generates syntactically valid Python automation scripts.
+- **No Artificial Test Limits**: Generates the exact number of test cases required by application scope or explicit user constraints (e.g. "exactly 3 tests" for fast validation or 50+ for full regression).
+- **Zero Rule-Based Fallbacks**: 100% genuine AI generation across all agents—no static templates or hardcoded fallback generators.
 - **Why it is useful**: Eliminates manual test script authoring and enforces standard design patterns (fixtures, `conftest.py`, base pages, assertions).
 - **Access**: Navigate to `/test-cases` and `/automation`.
 
 #### 6. Sandboxed Test Execution Engine
-- **What it does**: Executes generated Playwright and Selenium test scripts inside an isolated local subprocess environment.
-- **Why it is useful**: Validates that scripts actually run against the target URL, capturing execution duration, stack traces, console logs, and failure triage classifications (*ApplicationDefect*, *EnvironmentIssue*, or *FlakyTest*).
+- **What it does**: Executes generated Playwright and Selenium test scripts inside an isolated local subprocess environment with configurable Headless or Visible (Headed / Watch) mode.
+- **Why it is useful**: Validates that scripts actually run against the target URL, capturing live screenshots, execution duration, stack traces, console logs, and failure triage classifications (*ApplicationDefect*, *EnvironmentIssue*, or *FlakyTest*).
 - **Access**: Navigate to `/executions`.
 
 ---
@@ -387,11 +392,11 @@ testing-agent-platform/
 │       ├── graph.py                 # 6-Node StateGraph definition and compilation
 │       └── state.py                 # TypedDict TestingWorkflowState definition
 │
-└── tests/                           # Pytest Test Automation Suite (33 verified tests)
-    ├── unit/                        # Unit tests for agents and model routers
+└── tests/                           # Pytest Test Automation Suite (38 verified tests, 100% pass rate)
+    ├── unit/                        # Unit tests for agents, bulk operations, pagination, and model routers
     ├── integration/                 # Integration tests for REST APIs and MCP workflows
     ├── security/                    # Security hardening, secrets vault, and injection tests
-    └── e2e/                         # End-to-end 6-agent workflow integration tests
+    └── e2e/                         # End-to-end 6-agent workflow integration and responsive regression tests
 ```
 
 ---
@@ -855,13 +860,13 @@ The repository includes a complete automated test suite covering unit tests, sec
 Activate your virtual environment and run:
 
 ```bash
-# Run all 33 tests with verbose output
+# Run all 38 verified tests with verbose output
 pytest tests/ -v
 ```
 
 #### Run Specific Test Modules
 ```bash
-# Run Unit Tests (Agents and Model Router)
+# Run Unit Tests (Agents, Bulk Operations, Pagination, and Model Router)
 pytest tests/unit/ -v
 
 # Run Security Tests (Secrets Vault, Subprocess Isolation, Injection Defense)
@@ -870,8 +875,14 @@ pytest tests/security/ -v
 # Run MCP Integration Tests (Tool Discovery, Boundary Guard, Approval Lifecycle)
 pytest tests/integration/test_mcp_integration.py -v
 
-# Run End-to-End Multi-Agent Workflow Test
+# Run End-to-End Multi-Agent Workflow Test (All 6 agents live pipeline)
 pytest tests/e2e/test_workflow_e2e.py -v
+
+# Run Responsive Viewport Regression Suite (13 Viewports across 11 routes, 143 checks)
+python tests/e2e/test_responsive_regression.py
+
+# Verify Strict Multi-Project Database Isolation (TrainMate, YouTube, IRCTC)
+python scripts/verify_e2e_isolation.py --verify-only
 ```
 
 ### Running Frontend Angular Builds & Tests
@@ -912,6 +923,14 @@ npm test -- --watch=false --browsers=ChromeHeadless
 ### 4. Playwright Browser Executable Not Found
 - **Symptom**: `Executable doesn't exist at C:\Users\...\AppData\Local\ms-playwright\chromium-...`.
 - **Fix**: Run `playwright install chromium` inside your activated `.venv`.
+
+### 5. OpenAI Unsupported Model Parameters (`temperature: 0.1` or `max_tokens`)
+- **Symptom**: `Unsupported value: 'temperature' does not support 0.1 with this model. Only the default (1) value is supported.` (e.g. on `gpt-6.2-sol` or reasoning models).
+- **Resolution**: The platform features capability-aware request configuration in `src/llm/capabilities/models.py` and `src/llm/providers/openai_provider.py`. When using fixed-temperature models, the temperature parameter is automatically omitted or normalized to 1, and token limit arguments automatically adjust between `max_tokens` and `max_completion_tokens`. Permanent parameter rejection automatically self-corrects without falling back to rule-based generators.
+
+### 6. Windows Subprocess Output Character Encoding (`cp1252` Error)
+- **Symptom**: `UnicodeDecodeError: 'charmap' codec can't decode byte 0x... in position ...`.
+- **Resolution**: The platform enforces UTF-8 decoding with character replacement (`encoding="utf-8", errors="replace"`) across all subprocess runners in `src/agents/test_execution/agent.py` and sanitizes international characters before console logging.
 
 ### 5. GitHub MCP Server Fails to Connect
 - **Symptom**: `GitHub Personal Access Token (PAT) is required` or `npx: command not found`.

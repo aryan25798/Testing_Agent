@@ -87,15 +87,49 @@ class TestExecutionAgent(BaseAgent):
             res = self._execute_script_isolated(target.code_content, base_url, browser=browser, headed=headed)
             duration = round(time.time() - test_start, 2)
 
+            screenshot_file = None
+            out_str = res.get("stdout", "") or ""
+            if "SCREENSHOT_CAPTURED: " in out_str:
+                for line in out_str.splitlines():
+                    if line.startswith("SCREENSHOT_CAPTURED: "):
+                        screenshot_file = line.replace("SCREENSHOT_CAPTURED: ", "").strip()
+                        break
+
             if res["exit_code"] == 0:
+                if "TEST_BLOCKED_OR_SKIPPED:" in out_str:
+                    return SingleTestResult(
+                        test_case_key=target.test_case_key,
+                        test_title=target.title,
+                        status="Blocked",
+                        failure_classification="EnvironmentIssue",
+                        suggested_fix="Feature or environment configuration requires manual or elevated credentials.",
+                        error_message=out_str,
+                        duration_seconds=duration,
+                        log_output=res["stdout"],
+                        screenshot_path=screenshot_file,
+                    )
                 return SingleTestResult(
                     test_case_key=target.test_case_key,
                     test_title=target.title,
                     status="Passed",
                     duration_seconds=duration,
                     log_output=res["stdout"],
+                    screenshot_path=screenshot_file,
                 )
             else:
+                combined_err = (res.get("stderr", "") or "") + (res.get("stdout", "") or "")
+                if "Skipped:" in combined_err or "BLOCKED:" in combined_err:
+                    return SingleTestResult(
+                        test_case_key=target.test_case_key,
+                        test_title=target.title,
+                        status="Blocked",
+                        failure_classification="EnvironmentIssue",
+                        suggested_fix="Safe read-only execution: Test blocked or skipped on public production endpoint.",
+                        error_message=res["stderr"] or res["stdout"],
+                        duration_seconds=duration,
+                        log_output=res["stdout"],
+                        screenshot_path=screenshot_file,
+                    )
                 classification, fix = self._classify_failure(res["stderr"] or res["stdout"])
                 return SingleTestResult(
                     test_case_key=target.test_case_key,
@@ -109,6 +143,7 @@ class TestExecutionAgent(BaseAgent):
                     suggested_fix=fix,
                     duration_seconds=duration,
                     log_output=res["stdout"],
+                    screenshot_path=screenshot_file,
                 )
         except Exception as e:
             duration = round(time.time() - test_start, 2)
@@ -310,41 +345,50 @@ project_root = r"{project_root}"
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-# Ensure tests.pages.base_page is available
-try:
-    from tests.pages.base_page import BasePage
-except ImportError:
-    class BasePage:
-        def __init__(self, page_or_driver):
-            self.page = page_or_driver
-            self.driver = page_or_driver
-        def navigate(self, path="/"):
-            target = "{base_url}".rstrip("/") + (path if path.startswith("/") else "/" + path)
-            if hasattr(self.page, "goto"):
-                self.page.goto(target, wait_until="domcontentloaded", timeout=15000)
-            elif hasattr(self.driver, "get"):
-                self.driver.get(target)
-        def get_title(self):
-            return self.page.title() if hasattr(self.page, "title") else getattr(self.driver, "title", "")
-        def click_button(self, selector):
-            if hasattr(self.page, "locator"):
-                self.page.locator(selector).click(timeout=5000)
-        def enter_text(self, selector, text):
-            if hasattr(self.page, "locator"):
-                self.page.locator(selector).fill(text, timeout=5000)
-        def is_visible(self, selector):
-            if hasattr(self.page, "locator"):
-                return self.page.locator(selector).is_visible()
-            return True
+# Ensure BasePage is universally accessible under pages, tests.pages, and base_page
+import types
 
-    import types
-    tests_mod = types.ModuleType("tests")
-    pages_mod = types.ModuleType("tests.pages")
-    pages_mod.BasePage = BasePage
-    tests_mod.pages = pages_mod
-    sys.modules["tests"] = tests_mod
-    sys.modules["tests.pages"] = pages_mod
-    sys.modules["tests.pages.base_page"] = pages_mod
+class BasePage:
+    def __init__(self, page_or_driver):
+        self.page = page_or_driver
+        self.driver = page_or_driver
+    def navigate(self, path="/"):
+        target = "{base_url}".rstrip("/") + (path if path.startswith("/") else "/" + path)
+        if hasattr(self.page, "goto"):
+            self.page.goto(target, wait_until="domcontentloaded", timeout=30000)
+        elif hasattr(self.driver, "get"):
+            self.driver.get(target)
+    def get_title(self):
+        return self.page.title() if hasattr(self.page, "title") else getattr(self.driver, "title", "")
+    def click_button(self, selector):
+        if hasattr(self.page, "locator"):
+            self.page.locator(selector).click(timeout=5000)
+    def enter_text(self, selector, text):
+        if hasattr(self.page, "locator"):
+            self.page.locator(selector).fill(text, timeout=5000)
+    def is_visible(self, selector):
+        if hasattr(self.page, "locator"):
+            return self.page.locator(selector).is_visible()
+        return True
+
+# Register in sys.modules so both 'pages.base_page' and 'tests.pages.base_page' resolve dynamically
+p_mod = types.ModuleType("pages")
+p_bp = types.ModuleType("pages.base_page")
+p_bp.BasePage = BasePage
+p_mod.base_page = p_bp
+sys.modules["pages"] = p_mod
+sys.modules["pages.base_page"] = p_bp
+
+tests_mod = types.ModuleType("tests")
+tests_pages_mod = types.ModuleType("tests.pages")
+tests_pages_bp = types.ModuleType("tests.pages.base_page")
+tests_pages_bp.BasePage = BasePage
+tests_pages_mod.base_page = tests_pages_bp
+tests_mod.pages = tests_pages_mod
+sys.modules["tests"] = tests_mod
+sys.modules["tests.pages"] = tests_pages_mod
+sys.modules["tests.pages.base_page"] = tests_pages_bp
+sys.modules["base_page"] = p_bp
 
 # --- User Automation Code Under Test ---
 """
@@ -389,6 +433,14 @@ for name, obj in list(locals().items()):
                             import time
                             time.sleep(2)
                     finally:
+                        try:
+                            import os
+                            os.makedirs("screenshots", exist_ok=True)
+                            screenshot_file = os.path.abspath(f"screenshots/{{name}}.png")
+                            pw_page.screenshot(path=screenshot_file, full_page=False)
+                            print(f"SCREENSHOT_CAPTURED: {{screenshot_file}}")
+                        except Exception as sc_err:
+                            pass
                         pw_page.close()
                         ctx.close()
                         browser_inst.close()
@@ -422,11 +474,24 @@ for name, obj in list(locals().items()):
                         import time
                         time.sleep(2)
                 finally:
+                    try:
+                        import os
+                        os.makedirs("screenshots", exist_ok=True)
+                        screenshot_file = os.path.abspath(f"screenshots/{{name}}.png")
+                        drv.save_screenshot(screenshot_file)
+                        print(f"SCREENSHOT_CAPTURED: {{screenshot_file}}")
+                    except Exception as sc_err:
+                        pass
                     drv.quit()
             else:
                 print(f"Skipping invocation of {{name}}")
         except Exception as e:
-            print(f"Error in {{name}}: {{e}}", file=sys.stderr)
+            if "Skipped" in type(e).__name__ or "skip" in str(e).lower() or "BLOCKED" in str(e):
+                clean_err = str(e).encode('ascii', errors='replace').decode('ascii')
+                print(f"TEST_BLOCKED_OR_SKIPPED: {{name}}: {{clean_err}}")
+                sys.exit(0)
+            err_str = str(e).encode('ascii', errors='replace').decode('ascii')
+            print(f"Error in {{name}}: {{err_str}}", file=sys.stderr)
             import traceback
             traceback.print_exc()
             sys.exit(1)
@@ -487,7 +552,15 @@ print("Execution verification completed.")
         try:
             # Execute with current virtual environment python and sanitized environment
             cmd = [sys.executable, tmp_path]
-            process = subprocess.run(cmd, env=isolated_env, capture_output=True, text=True, timeout=timeout_sec)
+            process = subprocess.run(
+                cmd,
+                env=isolated_env,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=timeout_sec,
+            )
             
             clean_stdout = prompt_sanitizer.redact_secrets(process.stdout)
             clean_stderr = prompt_sanitizer.redact_secrets(process.stderr)
@@ -591,6 +664,7 @@ print("Execution verification completed.")
                         suggested_fix=r.suggested_fix,
                         execution_duration_seconds=r.duration_seconds,
                         log_output=r.log_output,
+                        screenshot_path=r.screenshot_path,
                     )
                     db.add(res_record)
                 db.commit()

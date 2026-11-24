@@ -271,6 +271,8 @@ class WorkflowStartRequest(BaseModel):
     framework: str = "playwright"
     browser: str = "chromium"  # chromium | firefox | webkit | chrome
     headed: bool = False  # Headed / Watch mode toggle
+    provider: Optional[str] = None  # gemini | openai
+    model: Optional[str] = None  # model identifier
 
 
 class BulkDeleteRequest(BaseModel):

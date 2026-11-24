@@ -251,6 +251,8 @@ export class ApiService {
     requirements_text?: string;
     source_type?: string;
     framework?: string;
+    provider?: string;
+    model?: string;
   }): Observable<any> {
     return this.http.post<any>(`${this.baseUrl}/workflows/start`, payload);
   }
@@ -277,7 +279,14 @@ export class ApiService {
 
   getWorkflowStreamUrl(
     projectId: string,
-    options?: { requirementsText?: string; framework?: string; browser?: string; headed?: boolean }
+    options?: {
+      requirementsText?: string;
+      framework?: string;
+      browser?: string;
+      headed?: boolean;
+      provider?: string;
+      model?: string;
+    }
   ): string {
     let url = `${this.baseUrl}/workflows/project/${projectId}/stream`;
     const params = new URLSearchParams();
@@ -292,6 +301,12 @@ export class ApiService {
     }
     if (options?.headed !== undefined) {
       params.set('headed', options.headed ? 'true' : 'false');
+    }
+    if (options?.provider) {
+      params.set('provider', options.provider);
+    }
+    if (options?.model) {
+      params.set('model', options.model);
     }
     const qs = params.toString();
     return qs ? `${url}?${qs}` : url;

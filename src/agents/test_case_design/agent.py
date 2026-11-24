@@ -4,36 +4,81 @@ Converts approved test scenarios into detailed, executable manual & automated te
 Generates synthetic test data (never real customer PII) and measurable execution steps.
 """
 
-from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field
+from typing import List, Optional, Dict, Any, Union
+from pydantic import BaseModel, Field, field_validator, model_validator
 from src.agents.base.base_agent import BaseAgent
 from src.agents.scenario_generation.agent import GeneratedScenario
 from src.core.logging import get_logger
+from src.core.exceptions import LLMGenerationError
 
 logger = get_logger("test_case_design_agent")
 
 
 class ExecutionStep(BaseModel):
-    step_number: int
-    action: str
-    expected: str
+    step_number: int = 1
+    action: str = ""
+    expected: str = ""
+
+    @model_validator(mode="before")
+    @classmethod
+    def reconcile_execution_step(cls, data: Any) -> Any:
+        if isinstance(data, str):
+            return {"step_number": 1, "action": data, "expected": "Step succeeds without error"}
+        if isinstance(data, dict):
+            num = data.get("step_number") or data.get("number") or data.get("step") or 1
+            act = data.get("action") or data.get("description") or data.get("step_description") or ""
+            exp = data.get("expected") or data.get("expected_result") or data.get("expected_outcome") or "Step completed"
+            return {"step_number": int(num) if str(num).isdigit() else 1, "action": str(act), "expected": str(exp)}
+        return data
 
 
 class GeneratedTestCase(BaseModel):
-    test_case_key: str = Field(description="Unique Test Case ID like TC-001")
-    scenario_key: str = Field(description="Parent Scenario ID like SCEN-001")
-    requirement_key: str = Field(description="Parent Requirement ID like REQ-001")
-    title: str = Field(description="Descriptive title of test case")
-    objective: str = Field(description="Exact verification goal")
+    test_case_key: str = Field(default="TC-001", description="Unique Test Case ID like TC-001")
+    scenario_key: str = Field(default="SCEN-001", description="Parent Scenario ID like SCEN-001")
+    requirement_key: str = Field(default="REQ-001", description="Parent Requirement ID like REQ-001")
+    title: str = Field(default="Verification of test scenario", description="Descriptive title of test case")
+    objective: str = Field(default="", description="Exact verification goal")
     test_type: str = Field(default="Functional")
     priority: str = Field(default="Medium")
-    preconditions: str = Field(description="System state prior to step execution")
+    preconditions: str = Field(default="", description="System state prior to step execution")
     test_environment: str = Field(default="QA")
     test_data: Dict[str, Any] = Field(default_factory=dict, description="Synthetic test data payload")
-    execution_steps: List[ExecutionStep] = Field(description="Ordered action-expected steps")
-    expected_results: str = Field(description="Final expected outcome of entire test case")
+    execution_steps: List[ExecutionStep] = Field(default_factory=list, description="Ordered action-expected steps")
+    expected_results: str = Field(default="", description="Final expected outcome of entire test case")
     automation_suitability: str = Field(default="Yes")
     tags: List[str] = Field(default_factory=list)
+
+    @field_validator("preconditions", "objective", "expected_results", mode="before")
+    @classmethod
+    def coerce_string_fields(cls, v: Any) -> str:
+        if isinstance(v, list):
+            return "\n".join(str(item).strip() for item in v if item is not None)
+        if isinstance(v, dict):
+            return ", ".join(f"{k}: {val}" for k, val in v.items())
+        return str(v) if v is not None else ""
+
+    @model_validator(mode="before")
+    @classmethod
+    def reconcile_test_case_fields(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            # Resolve steps aliases
+            steps = data.get("execution_steps") or data.get("steps") or data.get("step_list") or []
+            if isinstance(steps, str):
+                steps = [steps]
+            data["execution_steps"] = steps
+
+            # Resolve expected results aliases
+            if not data.get("expected_results"):
+                data["expected_results"] = data.get("expected_result") or data.get("expected") or data.get("expected_outcome") or "Test case passes verification."
+
+            # Resolve title alias
+            if not data.get("title"):
+                data["title"] = data.get("name") or data.get("test_name") or f"Verify {data.get('scenario_key', 'scenario')}"
+
+            # Ensure test data is a dict
+            if not isinstance(data.get("test_data"), dict):
+                data["test_data"] = {}
+        return data
 
 
 class TestCaseDesignInput(BaseModel):
@@ -42,9 +87,23 @@ class TestCaseDesignInput(BaseModel):
 
 
 class TestCaseDesignOutput(BaseModel):
-    test_cases: List[GeneratedTestCase]
-    total_test_cases: int
-    summary: str
+    test_cases: List[GeneratedTestCase] = Field(default_factory=list)
+    total_test_cases: int = Field(default=0)
+    summary: str = Field(default="")
+
+    @model_validator(mode="before")
+    @classmethod
+    def reconcile_test_case_output(cls, data: Any) -> Any:
+        if isinstance(data, list):
+            return {"test_cases": data, "total_test_cases": len(data), "summary": f"Designed {len(data)} detailed test cases."}
+        if isinstance(data, dict):
+            cases = data.get("test_cases") or data.get("cases") or data.get("items") or []
+            data["test_cases"] = cases
+            if not data.get("total_test_cases"):
+                data["total_test_cases"] = len(cases)
+            if not data.get("summary"):
+                data["summary"] = f"Designed {len(cases)} detailed test cases."
+        return data
 
 
 SYSTEM_INSTRUCTIONS = """You are a Senior QA Test Case Designer.
@@ -103,6 +162,8 @@ class TestCaseDesignAgent(BaseAgent):
                 "\n\n".join(scenario_prompts), label=f"client_scenarios_batch_{b_idx + 1}"
             )
 
+            count_rule = f"\n4. Output exactly {target_count} test cases matching the scenarios." if target_count else ""
+
             prompt = f"""Convert these scenarios into granular, step-by-step test cases with synthetic test data:
 
 {wrapped_scenarios}
@@ -110,9 +171,8 @@ class TestCaseDesignAgent(BaseAgent):
 CRITICAL RULES:
 1. Return valid JSON matching TestCaseDesignOutput.
 2. Ensure every test case references its parent 'scenario_key' and 'requirement_key'.
-3. Include unambiguous 'execution_steps' and synthetic 'test_data'."""
+3. Include unambiguous 'execution_steps' and synthetic 'test_data'.{count_rule}"""
 
-            batch_succeeded = False
             try:
                 data = self.execute_with_llm(
                     prompt=prompt,
@@ -123,155 +183,15 @@ CRITICAL RULES:
                     validated = normalize_to_schema(data, TestCaseDesignOutput)
                     if validated.test_cases:
                         all_test_cases.extend(validated.test_cases)
-                        batch_succeeded = True
             except Exception as e:
-                logger.warning(f"Batch {b_idx + 1}/{len(batches)} LLM test case design failed: {e}. Applying rule-based fallback for this batch.")
+                logger.error(f"Batch {b_idx + 1}/{len(batches)} LLM test case design failed: {e}")
+                raise e
 
-            if not batch_succeeded:
-                # Deterministic Rule-Based Fallback for this batch
-                for s in batch:
-                    tc_idx = len(all_test_cases) + 1
-                    s_lower = s.title.lower()
-                    if "admin" in s_lower:
-                        all_test_cases.append(
-                            GeneratedTestCase(
-                                test_case_key=f"TC-{tc_idx:03d}",
-                                scenario_key=s.scenario_key,
-                                requirement_key=s.requirement_key,
-                                title="Verify Admin Role Login & Dashboard Access",
-                                objective="Confirm successful authentication for Administrator with full cohort allocation privileges.",
-                                test_type="Functional",
-                                priority="Critical",
-                                preconditions="Admin user account is provisioned in the database.",
-                                test_environment="QA",
-                                test_data={"username": "admin@trainmate.com", "role": "admin", "redirect_url": "/dashboard"},
-                                execution_steps=[
-                                    ExecutionStep(step_number=1, action="Navigate to the application login portal.", expected="Login page renders with username and password fields."),
-                                    ExecutionStep(step_number=2, action="Enter valid Admin credentials: username='admin@trainmate.com'.", expected="Input fields accept credentials securely."),
-                                    ExecutionStep(step_number=3, action="Click the 'Sign In' button.", expected="Authentication succeeds; token is issued."),
-                                    ExecutionStep(step_number=4, action="Verify redirected URL and dashboard view.", expected="User is redirected to Admin Dashboard with cohort management controls."),
-                                ],
-                                expected_results="Admin user is authenticated and granted full administrative portal permissions.",
-                                automation_suitability="Yes",
-                                tags=["auth", "admin", "smoke"],
-                            )
-                        )
-                    elif "trainer" in s_lower:
-                        all_test_cases.append(
-                            GeneratedTestCase(
-                                test_case_key=f"TC-{tc_idx:03d}",
-                                scenario_key=s.scenario_key,
-                                requirement_key=s.requirement_key,
-                                title="Verify Trainer Role Login & Schedule Access",
-                                objective="Confirm successful authentication for Trainer role with assigned cohort schedule access.",
-                                test_type="Functional",
-                                priority="High",
-                                preconditions="Trainer user account is active in the database.",
-                                test_environment="QA",
-                                test_data={"username": "trainer.lead@trainmate.com", "role": "trainer", "redirect_url": "/trainer/schedule"},
-                                execution_steps=[
-                                    ExecutionStep(step_number=1, action="Navigate to the application login portal.", expected="Login page renders successfully."),
-                                    ExecutionStep(step_number=2, action="Enter valid Trainer credentials: username='trainer.lead@trainmate.com'.", expected="Credentials entered without errors."),
-                                    ExecutionStep(step_number=3, action="Click the 'Sign In' button.", expected="Authentication succeeds."),
-                                    ExecutionStep(step_number=4, action="Verify redirected portal view.", expected="User is redirected to Trainer Schedule view showing assigned training cohorts."),
-                                ],
-                                expected_results="Trainer user is authenticated and receives trainer role navigation.",
-                                automation_suitability="Yes",
-                                tags=["auth", "trainer", "smoke"],
-                            )
-                        )
-                    elif "trainee" in s_lower or "student" in s_lower or "user" in s_lower:
-                        all_test_cases.append(
-                            GeneratedTestCase(
-                                test_case_key=f"TC-{tc_idx:03d}",
-                                scenario_key=s.scenario_key,
-                                requirement_key=s.requirement_key,
-                                title="Verify Trainee Role Login & Learning Portal Access",
-                                objective="Confirm successful authentication for Trainee role with course module access.",
-                                test_type="Functional",
-                                priority="High",
-                                preconditions="Trainee user account is enrolled in an active cohort.",
-                                test_environment="QA",
-                                test_data={"username": "trainee.cohort01@trainmate.com", "role": "trainee", "redirect_url": "/modules"},
-                                execution_steps=[
-                                    ExecutionStep(step_number=1, action="Navigate to the application login portal.", expected="Login page renders successfully."),
-                                    ExecutionStep(step_number=2, action="Enter valid Trainee credentials: username='trainee.cohort01@trainmate.com'.", expected="Credentials accepted."),
-                                    ExecutionStep(step_number=3, action="Click the 'Sign In' button.", expected="Authentication succeeds."),
-                                    ExecutionStep(step_number=4, action="Verify redirected portal view.", expected="User is redirected to Trainee Learning Portal showing enrolled cohorts."),
-                                ],
-                                expected_results="Trainee user is authenticated and restricted to trainee module view.",
-                                automation_suitability="Yes",
-                                tags=["auth", "trainee", "smoke"],
-                            )
-                        )
-                    elif s.test_type == "Positive":
-                        all_test_cases.append(
-                            GeneratedTestCase(
-                                test_case_key=f"TC-{tc_idx:03d}",
-                                scenario_key=s.scenario_key,
-                                requirement_key=s.requirement_key,
-                                title=f"{s.title} - Standard Flow",
-                                objective=s.test_objective,
-                                test_type="Functional",
-                                priority=s.priority,
-                                preconditions=s.preconditions,
-                                test_environment="QA",
-                                test_data={"username": "qa_tester_01@example.com", "valid_payload": True, "amount": 99.99},
-                                execution_steps=[
-                                    ExecutionStep(step_number=1, action="Navigate to the application page under test.", expected="Page loads completely with HTTP 200 within 2 seconds."),
-                                    ExecutionStep(step_number=2, action="Fill in valid form data from test_data payload.", expected="Input fields accept entries without validation warnings."),
-                                    ExecutionStep(step_number=3, action="Click the primary Submit / Action button.", expected="Submission spinner appears and request dispatches."),
-                                    ExecutionStep(step_number=4, action="Inspect the resulting page state and database record.", expected="Success confirmation banner is displayed and record is stored."),
-                                ],
-                                expected_results=s.expected_outcome,
-                                automation_suitability="Yes",
-                                tags=["smoke", "regression", "core"],
-                            )
-                        )
-                    elif s.test_type == "Negative":
-                        all_test_cases.append(
-                            GeneratedTestCase(
-                                test_case_key=f"TC-{tc_idx:03d}",
-                                scenario_key=s.scenario_key,
-                                requirement_key=s.requirement_key,
-                                title=f"{s.title} - Malformed & Empty Inputs",
-                                objective=s.test_objective,
-                                test_type="Negative",
-                                priority=s.priority,
-                                preconditions=s.preconditions,
-                                test_data={"username": "", "invalid_email": "bad_email_format", "special_chars": "'; DROP TABLE users;--"},
-                                execution_steps=[
-                                    ExecutionStep(step_number=1, action="Navigate to the form or interface under test.", expected="Form is displayed with clean inputs."),
-                                    ExecutionStep(step_number=2, action="Submit form leaving required fields empty.", expected="Validation alerts highlight required missing fields."),
-                                    ExecutionStep(step_number=3, action="Enter malformed data from test_data and click submit.", expected="Inline error appears: 'Please enter a valid format'."),
-                                ],
-                                expected_results="Form is not submitted and clear validation messages guide the user.",
-                                automation_suitability="Yes",
-                                tags=["negative", "validation"],
-                            )
-                        )
-                    else:
-                        all_test_cases.append(
-                            GeneratedTestCase(
-                                test_case_key=f"TC-{tc_idx:03d}",
-                                scenario_key=s.scenario_key,
-                                requirement_key=s.requirement_key,
-                                title=f"{s.title} - Boundary & Security Verification",
-                                objective=s.test_objective,
-                                test_type=s.test_type,
-                                priority=s.priority,
-                                preconditions=s.preconditions,
-                                test_data={"boundary_min": 1, "boundary_max": 255, "overflow": "A" * 300},
-                                execution_steps=[
-                                    ExecutionStep(step_number=1, action="Navigate to the target endpoint or interface.", expected="Interface renders."),
-                                    ExecutionStep(step_number=2, action="Supply maximum boundary length string.", expected="System accepts maximum boundary value safely."),
-                                    ExecutionStep(step_number=3, action="Supply string exceeding boundary limit.", expected="Client prevents further typing or API responds with 422 Unprocessable Entity."),
-                                ],
-                                expected_results=s.expected_outcome,
-                                automation_suitability="Yes",
-                                tags=["boundary", "security"],
-                            )
-                        )
+        if not all_test_cases:
+            raise LLMGenerationError(
+                "AI test case design returned empty test case collection.",
+                details={"agent": self.agent_id, "project_id": project_id},
+            )
 
         if target_count and len(all_test_cases) > target_count:
             logger.info(f"Capping designed test cases from {len(all_test_cases)} to target count {target_count}.")

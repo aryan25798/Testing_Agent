@@ -6,7 +6,7 @@ Performs automatic Python syntax compilation validation before saving.
 """
 
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from src.agents.base.base_agent import BaseAgent
 from src.agents.test_case_design.agent import GeneratedTestCase
 from src.core.logging import get_logger
@@ -24,6 +24,36 @@ class GeneratedScript(BaseModel):
     validation_error: Optional[str] = None
 
 
+class SingleScriptGeneration(BaseModel):
+    test_case_key: str = Field(default="TC-001", description="Test case key e.g. TC-001")
+    code_content: str = Field(default="", description="Complete Python test script code")
+    explanation: Optional[str] = Field(default="", description="Summary of assertions and locators used")
+
+    @model_validator(mode="before")
+    @classmethod
+    def reconcile_script(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            code = data.get("code_content") or data.get("code") or data.get("script") or data.get("script_code") or ""
+            key = data.get("test_case_key") or data.get("key") or data.get("id") or "TC-001"
+            data["code_content"] = str(code)
+            data["test_case_key"] = str(key)
+        return data
+
+
+class AutomationBatchOutput(BaseModel):
+    scripts: List[SingleScriptGeneration] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def reconcile_batch(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            sc = data.get("scripts") or data.get("test_scripts") or data.get("items") or []
+            data["scripts"] = sc
+        elif isinstance(data, list):
+            data = {"scripts": data}
+        return data
+
+
 class AutomationGenerationInput(BaseModel):
     test_cases: List[GeneratedTestCase]
     framework: str = "playwright"  # playwright | selenium
@@ -38,16 +68,17 @@ class AutomationGenerationOutput(BaseModel):
     validation_summary: str
 
 
-SYSTEM_INSTRUCTIONS = """You are a Senior Test Automation Architect specializing in Playwright and Selenium for Python.
+SYSTEM_INSTRUCTIONS = """You are a Principal Test Automation Architect specializing in Playwright and Selenium for Python.
 Your mission is to generate clean, maintainable, production-ready Python automation scripts based on approved test cases.
 
 BEST PRACTICES:
-1. Follow Page Object Model (POM) design pattern.
-2. Use reliable locators (e.g. page.get_by_role, page.get_by_test_id, page.locator). Avoid fragile absolute XPaths.
+1. Follow Page Object Model (POM) or idiomatic direct Playwright/Selenium API.
+2. Use reliable locators (e.g. page.get_by_role, page.get_by_placeholder, page.get_by_label, page.locator). Avoid fragile absolute XPaths.
 3. NEVER USE ARBITRARY sleep() STATEMENTS. Rely on built-in auto-waiting or explicit waits.
-4. Include clear assertion statements with descriptive error messages.
-5. Code must be syntactically valid Python that passes `compile()`.
-6. Return only valid JSON conforming to the requested schema.
+4. Include explicit assertion statements checking expected outcomes and state transitions.
+5. All generated test functions must take the browser fixture ('page' for Playwright, 'driver' for Selenium).
+6. Code must be syntactically valid Python that passes `compile()`.
+7. Return only valid RFC-8259 JSON conforming to AutomationBatchOutput schema.
 """
 
 
@@ -62,6 +93,9 @@ class TestAutomationAgent(BaseAgent):
         )
 
     def run(self, input_data: AutomationGenerationInput, project_id: Optional[str] = None) -> AutomationGenerationOutput:
+        from src.core.security.sanitizer import prompt_sanitizer
+        from src.core.utils.json_sanitizer import normalize_to_schema
+
         framework = input_data.framework.lower()
         if framework not in ["playwright", "selenium"]:
             framework = "playwright"
@@ -70,13 +104,14 @@ class TestAutomationAgent(BaseAgent):
         if browser_name not in ["chromium", "firefox", "webkit", "chrome"]:
             browser_name = "chromium"
 
-        scripts = []
+        base_url = (input_data.base_url or "http://127.0.0.1:8000").rstrip("/")
+        scripts: List[GeneratedScript] = []
 
         # 1. Base Configuration & Fixtures
         if framework == "playwright":
-            conftest_code = self._generate_playwright_conftest(input_data.base_url, browser_name)
+            conftest_code = self._generate_playwright_conftest(base_url, browser_name)
         else:
-            conftest_code = self._generate_selenium_conftest(input_data.base_url, browser_name)
+            conftest_code = self._generate_selenium_conftest(base_url, browser_name)
 
         scripts.append(
             self._create_validated_script(
@@ -102,18 +137,108 @@ class TestAutomationAgent(BaseAgent):
             )
         )
 
-        # 3. Test Cases to Scripts
-        for tc in input_data.test_cases:
+        # 3. AI-Powered Script Generation per Test Case Batch
+        test_cases = input_data.test_cases or []
+        batch_size = 4
+        batches = [test_cases[i : i + batch_size] for i in range(0, len(test_cases), batch_size)]
+
+        ai_generated_map: Dict[str, str] = {}
+        for b_idx, batch in enumerate(batches):
+            case_specs = []
+            for tc in batch:
+                steps_str = "\n".join(
+                    [f"  Step {s.step_number}: {s.action} -> Expected: {s.expected}" for s in tc.execution_steps]
+                )
+                case_specs.append(
+                    f"Test Case: {tc.test_case_key} - {tc.title}\n"
+                    f"Objective: {tc.objective}\n"
+                    f"Preconditions: {tc.preconditions}\n"
+                    f"Test Data: {tc.test_data}\n"
+                    f"Steps:\n{steps_str}\n"
+                    f"Expected Result: {tc.expected_results}"
+                )
+
+            wrapped_batch = prompt_sanitizer.wrap_untrusted_input(
+                "\n\n---\n\n".join(case_specs), label=f"test_cases_batch_{b_idx + 1}"
+            )
+
+            prompt = f"""Generate production-grade {framework.upper()} Python test functions for the following test cases against target URL: {base_url}
+
+{wrapped_batch}
+
+CRITICAL EXECUTION REQUIREMENTS:
+1. For each test case, generate a Python test function:
+   - For Playwright: 'def test_{{test_case_key_clean}}(page: Page):' importing Page, expect, and BasePage.
+   - For Selenium: 'def test_{{test_case_key_clean}}(driver):' importing By, WebDriverWait, EC, and BasePage.
+2. Self-contained live execution: The script must directly perform live actions against '{base_url}' using the page fixture (e.g. page.goto('{base_url}'), page.wait_for_load_state('domcontentloaded')).
+3. NO EXTERNAL DEPENDENCIES: Never import from other test files (e.g. do NOT do 'from test_tc_002 import ...'). Every file is executed independently.
+4. NO UNSET ENV VARS: Never gate test execution behind custom environment variables (e.g. do NOT do 'os.getenv(...)') or missing hook modules. Embed required locators and selectors directly.
+5. Translate the test case steps into realistic, safe browser actions (navigate, locate visible elements, inspect forms/inputs, verify page title and headers).
+6. Safe read-only execution: Do not attempt real financial payments, ticket bookings, or destructive modifications.
+7. Add robust assertions reflecting the 'Expected Result'.
+8. Return JSON matching AutomationBatchOutput schema."""
+
+            try:
+                batch_res = self.execute_with_llm(
+                    prompt=prompt,
+                    output_schema=AutomationBatchOutput,
+                    project_id=project_id,
+                )
+                if batch_res:
+                    norm = normalize_to_schema(batch_res, AutomationBatchOutput)
+                    for item in norm.scripts:
+                        if item.test_case_key and item.code_content:
+                            ai_generated_map[item.test_case_key.upper()] = item.code_content
+            except Exception as e:
+                logger.warning(f"AI test script generation batch {b_idx + 1} failed: {e}. Synthesizing step-aware script.")
+
+        # 4. Assemble and Validate All Test Scripts
+        for tc in test_cases:
             clean_name = tc.test_case_key.lower().replace("-", "_")
+            test_file_path = f"tests/test_{clean_name}.py"
+            tc_key_upper = tc.test_case_key.upper()
+
+            raw_code = ai_generated_map.get(tc_key_upper)
+            if raw_code and raw_code.strip():
+                # Clean any markdown fences if present
+                clean_code = raw_code.strip()
+                if clean_code.startswith("```python"):
+                    clean_code = clean_code[9:]
+                elif clean_code.startswith("```"):
+                    clean_code = clean_code[3:]
+                if clean_code.endswith("```"):
+                    clean_code = clean_code[:-3]
+                clean_code = clean_code.strip()
+
+                # Prepend necessary imports if missing
+                if framework == "playwright" and "from playwright.sync_api import" not in clean_code:
+                    clean_code = "import pytest\nfrom playwright.sync_api import Page, expect\nfrom tests.pages.base_page import BasePage\n\n" + clean_code
+                elif framework == "selenium" and "from selenium" not in clean_code:
+                    clean_code = "import pytest\nfrom selenium.webdriver.common.by import By\nfrom tests.pages.base_page import BasePage\n\n" + clean_code
+
+                script_obj = self._create_validated_script(
+                    script_name=f"test_{clean_name}.py",
+                    file_path=test_file_path,
+                    framework=framework,
+                    test_case_key=tc.test_case_key,
+                    code_content=clean_code,
+                )
+                if script_obj.syntax_valid:
+                    scripts.append(script_obj)
+                    continue
+                else:
+                    logger.warning(f"AI generated script for {tc.test_case_key} had syntax error: {script_obj.validation_error}. Falling back to structured generator.")
+
+            # Step-aware synthesis if LLM batch did not produce valid code
             if framework == "playwright":
-                test_code = self._generate_playwright_test(tc, input_data.base_url)
+                test_code = self._generate_playwright_test(tc, base_url)
             else:
-                test_code = self._generate_selenium_test(tc, input_data.base_url)
+                test_code = self._generate_selenium_test(tc, base_url)
 
             scripts.append(
                 self._create_validated_script(
                     script_name=f"test_{clean_name}.py",
-                    file_path=f"tests/test_{clean_name}.py",
+                    file_path=test_file_path,
                     framework=framework,
                     test_case_key=tc.test_case_key,
                     code_content=test_code,

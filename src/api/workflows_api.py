@@ -8,6 +8,7 @@ from typing import Dict, Any, Optional
 import json
 import asyncio
 import threading
+import time
 from fastapi import APIRouter, Depends, HTTPException, Response, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -18,7 +19,9 @@ from src.workflows.graph import testing_graph
 from src.agents.orchestration_reporting.agent import OrchestrationReportingAgent
 from src.core.workflow_runner import workflow_runner, WorkflowState
 from src.config.settings import settings
+from src.core.logging import get_logger
 
+logger = get_logger("workflows_api")
 router = APIRouter(prefix="/workflows", tags=["Workflows"])
 reporting_agent = OrchestrationReportingAgent()
 
@@ -40,10 +43,23 @@ async def start_testing_workflow(
 
     raw_text = payload.requirements_text or project.description or "User Authentication and Checkout Payment Flow"
 
+    # Dynamic Provider & Model Routing
+    from src.llm.router.agent_model_router import agent_model_router
+    if getattr(payload, "provider", None):
+        clean_prov = payload.provider.lower().strip()
+        if clean_prov in ["gemini", "openai"]:
+            target_model = payload.model.strip() if getattr(payload, "model", None) else (
+                settings.DEFAULT_OPENAI_MODEL if clean_prov == "openai" else settings.DEFAULT_GEMINI_MODEL
+            )
+            for agent_key in agent_model_router.get_all_configurations().keys():
+                agent_model_router.set_agent_model(agent_key, clean_prov, target_model)
+            logger.info(f"Start workflow: routed all 6 agents to {clean_prov} / {target_model}")
+
+    run_timestamp = int(time.time())
     initial_state = {
-        "thread_id": f"thread_{project.id}",
+        "thread_id": f"thread_{project.id}_{run_timestamp}",
         "project_id": project.id,
-        "workflow_id": f"wf_{project.id}",
+        "workflow_id": f"wf_{project.id}_{run_timestamp}",
         "raw_input_text": raw_text,
         "source_type": payload.source_type,
         "framework": payload.framework or project.framework,
@@ -239,11 +255,14 @@ async def stream_testing_workflow(
     framework: Optional[str] = Query(None),
     browser: Optional[str] = Query(None),
     headed: bool = Query(False, description="Whether to launch a visible browser window (watch mode)"),
+    provider: Optional[str] = Query(None, description="Target AI provider (gemini or openai)"),
+    model: Optional[str] = Query(None, description="Target AI model identifier"),
 ):
     """
     Server-Sent Events (SSE) stream yielding real-time execution events for each agent node.
-    Accepts customized requirements ground truth, automation framework, browser, and headed watch mode selections.
-    Enforces safe cancellation checking between nodes and during execution.
+    Accepts customized requirements ground truth, automation framework, browser, headed watch mode,
+    and runtime AI provider / model selections.
+    Enforces strict project isolation, authentic provider tracking, and cancellation checks.
     """
     with SessionLocal() as db:
         project = db.query(Project).filter(Project.id == project_id).first()
@@ -262,16 +281,26 @@ async def stream_testing_workflow(
         else:
             raw_text = "User Authentication and Checkout Payment Flow"
 
-    # Register cancellation event for this run
+    # Register cancellation event for this specific project run
     cancel_evt = workflow_runner.register_project_run(project_id)
 
-    ai_provider = getattr(settings, "DEFAULT_AI_PROVIDER", "gemini")
-    ai_model = getattr(settings, "DEFAULT_MODEL", "gemini-2.5-flash")
+    # Dynamic Provider & Model Routing
+    from src.llm.router.agent_model_router import agent_model_router
+    if provider:
+        clean_prov = provider.lower().strip()
+        if clean_prov in ["gemini", "openai"]:
+            target_model = model.strip() if model else (
+                settings.DEFAULT_OPENAI_MODEL if clean_prov == "openai" else settings.DEFAULT_GEMINI_MODEL
+            )
+            for agent_key in agent_model_router.get_all_configurations().keys():
+                agent_model_router.set_agent_model(agent_key, clean_prov, target_model)
+            logger.info(f"Stream workflow: routed all 6 agents to {clean_prov} / {target_model}")
 
+    run_timestamp = int(time.time())
     initial_state = {
-        "thread_id": f"thread_{project_id}",
+        "thread_id": f"thread_{project_id}_{run_timestamp}",
         "project_id": project_id,
-        "workflow_id": f"wf_{project_id}",
+        "workflow_id": f"wf_{project_id}_{run_timestamp}",
         "raw_input_text": raw_text,
         "source_type": "manual",
         "framework": fw,
@@ -295,17 +324,71 @@ async def stream_testing_workflow(
     }
 
     agent_meta = {
-        "requirement_analysis": {"name": "Requirements Analyst", "step": 1, "total": 6, "desc": "Analyzing requirements ground truth & extracting verifiable criteria..."},
-        "scenario_generation": {"name": "Test Scenario Generator", "step": 2, "total": 6, "desc": "Synthesizing positive, negative, and security test scenarios..."},
-        "test_case_design": {"name": "Test Case Designer", "step": 3, "total": 6, "desc": "Formulating detailed step-by-step test cases in batches..."},
-        "test_automation": {"name": "Automation Engineer", "step": 4, "total": 6, "desc": f"Generating {fw.upper()} test automation scripts..."},
-        "test_execution": {"name": "Execution & Bug Hunter", "step": 5, "total": 6, "desc": f"Executing test suite in isolated {br.upper()} sandbox..."},
-        "orchestration_reporting": {"name": "Reporting & Quality Advisor", "step": 6, "total": 6, "desc": "Calculating quality readiness score and compiling report..."},
+        "requirement_analysis": {
+            "key": "agent_1_requirement_analysis",
+            "name": "Requirements Analyst",
+            "step": 1,
+            "total": 6,
+            "desc": "Analyzing requirements ground truth & extracting verifiable criteria...",
+        },
+        "scenario_generation": {
+            "key": "agent_2_scenario_generation",
+            "name": "Test Scenario Generator",
+            "step": 2,
+            "total": 6,
+            "desc": "Synthesizing positive, negative, and security test scenarios...",
+        },
+        "test_case_design": {
+            "key": "agent_3_test_case_design",
+            "name": "Test Case Designer",
+            "step": 3,
+            "total": 6,
+            "desc": "Formulating detailed step-by-step test cases in batches...",
+        },
+        "test_automation": {
+            "key": "agent_4_test_automation",
+            "name": "Automation Engineer",
+            "step": 4,
+            "total": 6,
+            "desc": f"Generating {fw.upper()} test automation scripts...",
+        },
+        "test_execution": {
+            "key": "agent_5_test_execution",
+            "name": "Execution & Bug Hunter",
+            "step": 5,
+            "total": 6,
+            "desc": f"Executing test suite in isolated {br.upper()} sandbox...",
+        },
+        "orchestration_reporting": {
+            "key": "agent_6_orchestration_reporting",
+            "name": "Reporting & Quality Advisor",
+            "step": 6,
+            "total": 6,
+            "desc": "Calculating quality readiness score and compiling report...",
+        },
     }
 
+    node_order = [
+        "requirement_analysis",
+        "scenario_generation",
+        "test_case_design",
+        "test_automation",
+        "test_execution",
+        "orchestration_reporting",
+    ]
+
     async def event_generator():
-        yield f"data: {json.dumps({'event': 'workflow_started', 'project_id': project_id, 'project_name': project_name, 'provider': ai_provider, 'model': ai_model, 'framework': fw, 'browser': br, 'message': 'LangGraph 6-agent autonomous workflow started.'})}\n\n"
-        
+        # Get active config for the first agent
+        first_cfg = agent_model_router.get_agent_config("agent_1_requirement_analysis")
+        first_provider = first_cfg.get("provider", "gemini")
+        first_model = first_cfg.get("model_id", "gemini-2.5-flash")
+
+        yield f"data: {json.dumps({'event': 'workflow_started', 'project_id': project_id, 'project_name': project_name, 'provider': first_provider, 'model': first_model, 'framework': fw, 'browser': br, 'message': 'LangGraph 6-agent autonomous workflow started.'})}\n\n"
+
+        # Emit initial agent_started event for Agent 1
+        meta1 = agent_meta["requirement_analysis"]
+        yield f"data: {json.dumps({'event': 'agent_started', 'node': 'requirement_analysis', 'agent': meta1['name'], 'step': 1, 'total_steps': 6, 'details': meta1['desc'], 'provider': first_provider, 'model': first_model})}\n\n"
+
         queue: asyncio.Queue = asyncio.Queue()
         loop = asyncio.get_running_loop()
 
@@ -325,7 +408,7 @@ async def stream_testing_workflow(
                     match = re.search(r"retry in (\d+)", err_msg.lower()) or re.search(r"retry after (\d+)", err_msg.lower())
                     retry_sec = int(match.group(1)) if match else (getattr(exc, "retry_after_seconds", 60) or 60)
                     loop.call_soon_threadsafe(queue.put_nowait, ("rate_limit", {
-                        "provider": getattr(exc, "provider", ai_provider),
+                        "provider": getattr(exc, "provider", first_provider),
                         "retry_after_seconds": retry_sec,
                         "error": err_msg,
                         "message": f"AI API Rate Limit / Quota Exceeded (HTTP 429). The model is temporarily rate-limited. Please wait {retry_sec}s or change your API key in Model Settings."
@@ -341,15 +424,27 @@ async def stream_testing_workflow(
             if msg_type == "chunk":
                 node_name = list(payload.keys())[0] if isinstance(payload, dict) else str(payload)
                 node_output = payload.get(node_name, {}) if isinstance(payload, dict) else {}
-                meta = agent_meta.get(node_name, {"name": node_name, "step": 0, "total": 6, "desc": "Processing..."})
-                
+                meta = agent_meta.get(node_name, {"name": node_name, "step": 0, "total": 6, "desc": "Processing...", "key": ""})
+
+                # Fetch authentic model/provider configuration for this agent
+                cfg = agent_model_router.get_agent_config(meta.get("key", "agent_1_requirement_analysis"))
+                cur_prov = cfg.get("provider", first_provider)
+                cur_model = cfg.get("model_id", first_model)
+
                 counts = {}
+                sample_titles = []
                 if "requirements" in node_output:
-                    counts["requirements"] = len(node_output["requirements"])
+                    reqs = node_output["requirements"]
+                    counts["requirements"] = len(reqs)
+                    sample_titles = [r.get("title", "") for r in reqs[:3]]
                 if "test_scenarios" in node_output:
-                    counts["scenarios"] = len(node_output["test_scenarios"])
+                    scens = node_output["test_scenarios"]
+                    counts["scenarios"] = len(scens)
+                    sample_titles = [s.get("title", "") for s in scens[:3]]
                 if "test_cases" in node_output:
-                    counts["test_cases"] = len(node_output["test_cases"])
+                    tcs = node_output["test_cases"]
+                    counts["test_cases"] = len(tcs)
+                    sample_titles = [tc.get("title", "") for tc in tcs[:3]]
                 if "automation_scripts" in node_output:
                     counts["scripts"] = len(node_output["automation_scripts"])
                 if "execution_results" in node_output:
@@ -360,7 +455,16 @@ async def stream_testing_workflow(
                     yield f"data: {json.dumps({'event': 'workflow_cancelled', 'project_id': project_id, 'message': 'Workflow stopped by user request.'})}\n\n"
                     break
 
-                yield f"data: {json.dumps({'event': 'agent_completed', 'node': node_name, 'agent': meta['name'], 'step': meta['step'], 'total_steps': meta['total'], 'details': meta['desc'], 'counts': counts, 'provider': ai_provider, 'model': ai_model})}\n\n"
+                # Emit agent_completed event
+                yield f"data: {json.dumps({'event': 'agent_completed', 'node': node_name, 'agent': meta['name'], 'step': meta['step'], 'total_steps': meta['total'], 'details': meta['desc'], 'counts': counts, 'sample_titles': sample_titles, 'provider': cur_prov, 'model': cur_model})}\n\n"
+
+                # If there is a next agent, emit agent_started for the upcoming agent
+                if meta["step"] < 6 and meta["step"] < len(node_order):
+                    next_node = node_order[meta["step"]]
+                    next_meta = agent_meta[next_node]
+                    next_cfg = agent_model_router.get_agent_config(next_meta["key"])
+                    yield f"data: {json.dumps({'event': 'agent_started', 'node': next_node, 'agent': next_meta['name'], 'step': next_meta['step'], 'total_steps': 6, 'details': next_meta['desc'], 'provider': next_cfg.get('provider', cur_prov), 'model': next_cfg.get('model_id', cur_model)})}\n\n"
+
             elif msg_type == "rate_limit":
                 yield f"data: {json.dumps({'event': 'rate_limit_exceeded', 'provider': payload.get('provider'), 'retry_after_seconds': payload.get('retry_after_seconds', 60), 'message': payload.get('message'), 'error': payload.get('error')})}\n\n"
                 break
