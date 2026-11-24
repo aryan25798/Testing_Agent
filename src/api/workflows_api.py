@@ -420,7 +420,13 @@ async def stream_testing_workflow(
         thread.start()
 
         while True:
-            msg_type, payload = await queue.get()
+            try:
+                msg_type, payload = await asyncio.wait_for(queue.get(), timeout=2.0)
+            except asyncio.TimeoutError:
+                # Transmit SSE comment heartbeat to maintain active socket through client, proxy, and browser idle timers
+                yield f": keepalive {int(time.time())}\n\n"
+                continue
+
             if msg_type == "chunk":
                 node_name = list(payload.keys())[0] if isinstance(payload, dict) else str(payload)
                 node_output = payload.get(node_name, {}) if isinstance(payload, dict) else {}
@@ -449,6 +455,11 @@ async def stream_testing_workflow(
                     counts["scripts"] = len(node_output["automation_scripts"])
                 if "execution_results" in node_output:
                     counts["executions"] = len(node_output["execution_results"])
+                if "consolidated_report" in node_output:
+                    counts["report"] = "ready"
+                    rep_data = node_output["consolidated_report"]
+                    if isinstance(rep_data, dict) and "test_pass_rate_pct" in rep_data:
+                        counts["pass_rate"] = f"{rep_data['test_pass_rate_pct']}%"
 
                 is_node_cancelled = node_output.get("workflow_status") == "Cancelled"
                 if is_node_cancelled:
@@ -472,6 +483,10 @@ async def stream_testing_workflow(
                 yield f"data: {json.dumps({'event': 'workflow_cancelled', 'project_id': project_id, 'message': 'Workflow successfully cancelled by user.'})}\n\n"
                 break
             elif msg_type == "done":
+                # Ensure final agent_completed event is emitted for Agent 6
+                meta6 = agent_meta["orchestration_reporting"]
+                cfg6 = agent_model_router.get_agent_config(meta6["key"])
+                yield f"data: {json.dumps({'event': 'agent_completed', 'node': 'orchestration_reporting', 'agent': meta6['name'], 'step': 6, 'total_steps': 6, 'details': meta6['desc'], 'counts': {'report': 'ready'}, 'sample_titles': [], 'provider': cfg6.get('provider', first_provider), 'model': cfg6.get('model_id', first_model)})}\n\n"
                 yield f"data: {json.dumps({'event': 'workflow_completed', 'status': 'success', 'message': 'All agents successfully executed.'})}\n\n"
                 break
             elif msg_type == "error":

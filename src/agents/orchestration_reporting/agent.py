@@ -88,13 +88,23 @@ class OrchestrationReportingAgent(BaseAgent):
             req_coverage_pct = round((len(covered_req_ids) / total_reqs * 100), 1) if total_reqs > 0 else 0.0
 
             total_cases = len(cases)
-            total_automated = len(scripts)
+            # Filter to actual test scripts (excluding infrastructure files like conftest.py and base_page.py)
+            test_scripts = [s for s in scripts if s.script_name.startswith("test_") or s.test_case_id is not None]
+            total_automated = min(len(test_scripts), total_cases) if total_cases > 0 else len(test_scripts)
             auto_coverage_pct = round((total_automated / total_cases * 100), 1) if total_cases > 0 else 0.0
 
-            total_passed = sum(e.passed_tests for e in executions)
-            total_failed = sum(e.failed_tests for e in executions)
-            total_skipped = sum(e.skipped_tests for e in executions)
-            total_executed = total_passed + total_failed + total_skipped
+            # Derive execution metrics from latest execution or cumulative runs
+            latest_exec = executions[-1] if executions else None
+            if latest_exec:
+                total_passed = latest_exec.passed_tests
+                total_failed = latest_exec.failed_tests
+                total_skipped = latest_exec.skipped_tests
+                total_executed = total_passed + total_failed + total_skipped
+            else:
+                total_passed = sum(e.passed_tests for e in executions)
+                total_failed = sum(e.failed_tests for e in executions)
+                total_skipped = sum(e.skipped_tests for e in executions)
+                total_executed = total_passed + total_failed + total_skipped
             pass_rate_pct = round((total_passed / total_executed * 100), 1) if total_executed > 0 else 0.0
 
             # Collect defect candidates from failed execution results
@@ -130,7 +140,7 @@ class OrchestrationReportingAgent(BaseAgent):
                 "## 1. Executive Summary",
                 f"- **Requirements Coverage**: `{req_coverage_pct}%` ({len(covered_req_ids)}/{total_reqs} requirements covered)",
                 f"- **Automation Coverage**: `{auto_coverage_pct}%` ({total_automated}/{total_cases} test cases automated)",
-                f"- **Test Pass Rate**: `{pass_rate_pct}%` ({total_passed}/{total_executed} test runs passed)",
+                f"- **Test Pass Rate**: `{pass_rate_pct}%` ({total_passed} of {total_executed} tests passed, {total_failed} failed)",
                 "",
                 "## 2. Testing Lifecycle Metrics",
                 "| Metric | Count |",

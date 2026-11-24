@@ -173,10 +173,12 @@ CRITICAL EXECUTION REQUIREMENTS:
 2. Self-contained live execution: The script must directly perform live actions against '{base_url}' using the page fixture (e.g. page.goto('{base_url}'), page.wait_for_load_state('domcontentloaded')).
 3. NO EXTERNAL DEPENDENCIES: Never import from other test files (e.g. do NOT do 'from test_tc_002 import ...'). Every file is executed independently.
 4. NO UNSET ENV VARS: Never gate test execution behind custom environment variables (e.g. do NOT do 'os.getenv(...)') or missing hook modules. Embed required locators and selectors directly.
-5. Translate the test case steps into realistic, safe browser actions (navigate, locate visible elements, inspect forms/inputs, verify page title and headers).
-6. Safe read-only execution: Do not attempt real financial payments, ticket bookings, or destructive modifications.
-7. Add robust assertions reflecting the 'Expected Result'.
-8. Return JSON matching AutomationBatchOutput schema."""
+5. Translate the test case steps into realistic, resilient browser actions (navigate, locate visible elements, type text, press Enter, verify page title, URL and visible elements).
+6. DO NOT USE BRITTLE NETWORK INTERCEPTIONS: Do not use `page.expect_request` or `page.expect_response` for dynamic single-page applications (like YouTube). They execute background RPCs asynchronously and network expectations will timeout after 30 seconds. Rely strictly on visible DOM assertions (e.g. `expect(locator).to_be_visible()`, `expect(page).to_have_url(...)`, `expect(page).to_have_title(...)`).
+7. Resilient action timeouts: Use sensible timeouts (5,000ms - 10,000ms) on element waits rather than blocking 30-second deadlines.
+8. Safe read-only execution: Do not attempt real financial payments, ticket bookings, or destructive modifications.
+9. Add robust assertions reflecting the 'Expected Result'.
+10. Return JSON matching AutomationBatchOutput schema."""
 
             try:
                 batch_res = self.execute_with_llm(

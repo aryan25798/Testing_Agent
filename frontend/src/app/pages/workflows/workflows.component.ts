@@ -864,12 +864,50 @@ export class WorkflowsComponent implements OnInit, OnDestroy {
     };
 
     eventSource.onerror = (err) => {
-      console.warn('SSE stream connection ended or falling back to HTTP execution', err);
+      console.warn('SSE stream disconnected or ended. Polling for workflow completion...', err);
       eventSource.close();
       if (this.isRunning && !this.isCancelled) {
-        this.runFallbackPipeline();
+        this.checkWorkflowStatusPolling(1);
       }
     };
+  }
+
+  private checkWorkflowStatusPolling(attempt: number) {
+    if (!this.isRunning || this.isCancelled || !this.selectedProjectId) return;
+
+    this.api.getProjectReport(this.selectedProjectId).subscribe({
+      next: (rep: any) => {
+        if (rep && (rep.total_test_cases > 0 || rep.total_executions > 0 || rep.markdown_report)) {
+          this.currentStepIndex = 6;
+          this.isRunning = false;
+          this.stopTimer();
+          this.workflowResult = {
+            total_requirements: rep.total_requirements ?? rep.requirements_count ?? 0,
+            total_scenarios: rep.total_scenarios ?? rep.scenarios_count ?? 0,
+            total_test_cases: rep.total_test_cases ?? rep.test_cases_count ?? 0,
+            total_scripts: rep.automated_test_cases ?? rep.total_scripts ?? rep.automation_scripts_count ?? 0,
+            report_summary: rep.executive_summary || rep.markdown_report || 'Autonomous testing completed.',
+          };
+          this.streamLogs.push({
+            agent: 'System',
+            time: new Date().toLocaleTimeString(),
+            text: 'Autonomous LangGraph testing completed successfully.',
+          });
+          this.loadMcpActivity();
+        } else if (attempt < 12) {
+          setTimeout(() => this.checkWorkflowStatusPolling(attempt + 1), 2500);
+        } else {
+          this.runFallbackPipeline();
+        }
+      },
+      error: () => {
+        if (attempt < 12) {
+          setTimeout(() => this.checkWorkflowStatusPolling(attempt + 1), 2500);
+        } else {
+          this.runFallbackPipeline();
+        }
+      },
+    });
   }
 
   private runFallbackPipeline() {
