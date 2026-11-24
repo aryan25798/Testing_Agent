@@ -286,15 +286,17 @@ async def stream_testing_workflow(
 
     # Dynamic Provider & Model Routing
     from src.llm.router.agent_model_router import agent_model_router
-    if provider:
+    if provider and provider.lower().strip() not in ["per-agent", "custom", "settings", "none", ""]:
         clean_prov = provider.lower().strip()
         if clean_prov in ["gemini", "openai"]:
-            target_model = model.strip() if model else (
+            target_model = model.strip() if model and model.strip() not in ["per-agent", "custom"] else (
                 settings.DEFAULT_OPENAI_MODEL if clean_prov == "openai" else settings.DEFAULT_GEMINI_MODEL
             )
             for agent_key in agent_model_router.get_all_configurations().keys():
                 agent_model_router.set_agent_model(agent_key, clean_prov, target_model)
             logger.info(f"Stream workflow: routed all 6 agents to {clean_prov} / {target_model}")
+    else:
+        logger.info("Stream workflow: preserving independent per-agent router configuration from Model Settings")
 
     run_timestamp = int(time.time())
     initial_state = {

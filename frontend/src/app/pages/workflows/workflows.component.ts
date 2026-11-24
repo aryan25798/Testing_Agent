@@ -283,15 +283,17 @@ import { IconComponent } from '../../shared/components/icon.component';
                 (change)="onProviderChange()"
                 class="mt-1 px-2.5 py-1 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 outline-none focus:border-blue-500 cursor-pointer w-full"
               >
-                <option value="gemini">Google Gemini</option>
-                <option value="openai">OpenAI</option>
+                <option value="per-agent">Per-Agent (Model Settings)</option>
+                <option value="openai">OpenAI (Global All 6)</option>
+                <option value="gemini">Google Gemini (Global All 6)</option>
               </select>
             </div>
             <div>
               <span class="block text-[11px] font-bold text-slate-500 dark:text-slate-400">AI Model</span>
               <select
                 [(ngModel)]="selectedModel"
-                class="mt-1 px-2.5 py-1 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 outline-none focus:border-blue-500 cursor-pointer w-full"
+                [disabled]="selectedProvider === 'per-agent'"
+                class="mt-1 px-2.5 py-1 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 outline-none focus:border-blue-500 cursor-pointer w-full disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <option *ngFor="let m of filteredModels" [value]="m.model_id">
                   {{ m.display_name || m.model_id }}
@@ -586,6 +588,22 @@ export class WorkflowsComponent implements OnInit, OnDestroy {
 
   onProviderChange() {
     const p = (this.selectedProvider || 'openai').toLowerCase();
+    if (p === 'per-agent') {
+      this.filteredModels = [
+        {
+          model_id: 'per-agent',
+          display_name: 'Configured in Model Settings (/models)',
+          provider: 'per-agent',
+          description: 'Each of the 6 agents executes on its individually assigned model',
+          is_available: true,
+        },
+      ];
+      this.selectedModel = 'per-agent';
+      this.activeProvider = 'Per-Agent Routing';
+      this.activeModel = 'Configured in /models';
+      return;
+    }
+
     const matched = this.allModels.filter((m) => m.provider?.toLowerCase() === p);
     if (matched.length > 0) {
       this.filteredModels = matched;
